@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    name: Build, lint, and test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Aftman
+        uses: ok-nick/setup-aftman@v0.4.2
+
+      - name: Install toolchain
+        run: aftman install --no-trust-check
+
+      - name: Build project
+        run: rojo build default.project.json -o build.rbxlx
+
+      - name: Formatting
+        run: stylua --check .
+
+      - name: Lint
+        run: selene src tests
+
+      - name: Unit tests
+        run: luau tests/run_tests.luau
+
+      - name: Type check pure modules
+        run: luau-analyze src/shared/Domain src/shared/Config

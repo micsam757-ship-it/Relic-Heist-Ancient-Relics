@@ -1,0 +1,5 @@
+std = "roblox"
+
+[lints]
+shadowing = "warn"
+mixed_table = "allow"

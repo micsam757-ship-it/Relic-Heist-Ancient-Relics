@@ -6,6 +6,18 @@
     "ReplicatedStorage": {
       "Shared": {
         "$path": "src/shared"
+      },
+      "Remotes": {
+        "$className": "Folder",
+        "Request": {
+          "$className": "RemoteEvent"
+        },
+        "State": {
+          "$className": "RemoteEvent"
+        },
+        "Event": {
+          "$className": "RemoteEvent"
+        }
       }
     },
 

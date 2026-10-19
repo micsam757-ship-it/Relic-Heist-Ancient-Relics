@@ -6,3 +6,12 @@
 /*.rbxl.lock
 
 sourcemap.json
+
+# Build outputs
+/build.rbxlx
+/out.rbxlx
+*.rbxlx
+*.rbxl
+
+# Aftman-managed toolchain (provisioned via `aftman install`)
+/.aftman/
