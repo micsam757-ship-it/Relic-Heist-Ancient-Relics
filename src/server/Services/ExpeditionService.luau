@@ -100,6 +100,7 @@ local function clearExpedition(player: Player)
 	end
 	state.ctx.Services.Hazard:StopCollapse(player)
 	state.expeditions[player] = nil
+	state.ctx.Services.Relic:OnExpeditionEnded(player, expedition.templeId)
 	return expedition
 end
 
@@ -159,6 +160,7 @@ function ExpeditionService:RequestEnter(player: Player, templeId: string, source
 	player:SetAttribute("LastDamageSource", "")
 	root.CFrame = runtime.spawnCFrame
 	ExpeditionService:RecalculateMovement(player)
+	state.ctx.Services.Relic:OnExpeditionStarted(player, templeId)
 
 	state.ctx.Services.Analytics:Track("expedition_entered", { temple = templeId })
 	if state.ctx.Services.Tutorial then

@@ -57,9 +57,29 @@ major.minor.patch scheme while pre-1.0.
   with inlay runners, balustrades and lantern posts from the hub to every museum
   plot entrance and every temple portal. `WorldBuilder` composes ground → hub →
   temples → avenues. 4 new world-layout tests — 87 assertions total at that point.
+- **Replayable expeditions**: relic pools are now scoped to temple occupancy —
+  spawned when the first player enters (`RelicService:OnExpeditionStarted`) and
+  destroyed when the last leaves (`OnExpeditionEnded`), so every expedition
+  starts from a full pool and players who share a temple share one pool instead
+  of seeing stacked duplicates. New pure `RunRules` module
+  (`src/shared/Domain/RunRules.luau`) holds the spawn plan, the extraction-credit
+  rule, and the haulability invariant. 5 new tests (every relic definition
+  spawns somewhere; `requiredRelics` haulable at max backpack; credit rule;
+  deterministic spawn plans; relic income under the museum rate cap) — 95
+  assertions total.
 
 ### Fixed
 
+- `WhisperingMask` was defined but never spawned (its `templeIds` listed the
+  Tutorial Ruins, whose `relicSpawns` did not include it). It now spawns in the
+  Tutorial Ruins at x 22, z 64, and a test asserts every relic definition
+  appears in at least one temple.
+- Void Citadel's `requiredRelics = 4` was unsatisfiable: the four lightest
+  Citadel relics weighed 250 against a maximum capacity of 140. `requiredRelics`
+  is now 3, the three lightest relics were trimmed (Void Sigil 42→38, Abyssal
+  Crown 48→44, Starless Idol 72→70 = 152), and the backpack max level is 6
+  (capacity 160), so a qualifying haul is always possible. Enforced by the
+  `requiredRelics is haulable` test for every temple.
 - Guardians never aggroed or chased. `GuardianService.hasLineOfSight` excluded
   player characters but not the guardian's own model, whose `HumanoidRootPart` is
   queryable; the eye-to-target ray could self-hit the guardian and fail the check
@@ -159,6 +179,14 @@ major.minor.patch scheme while pre-1.0.
   - 1 new test asserts every wing ceiling is 14-16 studs — **89 assertions total**.
 - 1 new world-layout test asserts the pulled-in temple corridor halls never
   overlap along +Z — **90 assertions total**.
+- **Extraction credit is now server-authoritative**: `profile.stats.extractions`
+  (the gate resource for `minExtractions` unlocks) is incremented only when the
+  haul meets the temple's `requiredRelics` (`RunRules.extractionCredit`). Gold
+  from the 25% stipend is still always paid. This closes the empty-hand farm at
+  the spawn-adjacent extraction altar (walk in, walk out, bank a counted
+  extraction). The expedition summary now carries a `credited` field and an
+  "Objective incomplete" line, and the toast distinguishes a counted run from a
+  payout-only run.
 
 ## [0.6.0] - 2026-10-20
 

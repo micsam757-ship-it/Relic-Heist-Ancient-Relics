@@ -18,7 +18,8 @@ intent; the config is the source of truth.
 
 ## Carrying
 
-- Base capacity 40 weight; `+20` per Reinforced Backpack level.
+- Base capacity 40 weight; `+20` per Reinforced Backpack level (max level 6,
+  so a fully upgraded pack holds 160 weight).
 - Base walk speed 19 studs/s (`GameConfig.Movement.BaseWalkSpeed`), tuned for the
   tightened 380-stud plot ring so foyer → hub plaza → temple portal crossings stay
   fast and fluid.
@@ -34,7 +35,27 @@ intent; the config is the source of truth.
 | Tutorial Ruins | free | 5:00 | 1 | one dart trap, one boulder (softened tell: 26 dmg, 2.4 s) |
 | Forgotten Catacombs | 1 extraction + 500 gold | 6:00 | 2 | two dart traps, one boulder, one Stone Guardian, tighter paths |
 | Sunken Sanctum | 2 extractions + 1500 gold | 7:00 | 3 | two whirling blades, one dart trap, one boulder, two guardians (one faster) |
-| Void Citadel | 4 extractions + 5000 gold | 8:00 | 4 | two void darts, two rift blades, a collapsing star, three Void Wardens (one faster Rift Keeper) |
+| Void Citadel | 4 extractions + 5000 gold | 8:00 | 3 | two void darts, two rift blades, a collapsing star, three Void Wardens (one faster Rift Keeper) |
+
+### Extraction credit
+
+An extraction only counts toward the next temple's `minExtractions` gate when
+the player extracts at least that temple's `requiredRelics` count
+(`RunRules.extractionCredit`). Gold from the 25% stipend is always paid, even
+on a short or empty-handed haul; the progression gate is not. This closes the
+walk-in walk-out farm at the spawn-adjacent extraction altar.
+
+Every temple's N lightest relics must fit a fully upgraded backpack (enforced
+by the `requiredRelics is haulable` test), so a qualifying haul is always
+physically possible.
+
+### Relic pools
+
+Relic pickups are scoped to temple occupancy: the pool spawns when the first
+player enters and is destroyed when the last player leaves
+(`RelicService:OnExpeditionStarted` / `OnExpeditionEnded`). Every expedition
+therefore starts from a full pool — temples are replayable, and players who
+share a temple share one pool rather than seeing stacked duplicates.
 
 ### Guardians
 
@@ -68,7 +89,7 @@ player is in the temple, so blades cost nothing on an empty server.
 | Upgrade | Max | Base price | Growth | Effect |
 | --- | --- | --- | --- | --- |
 | Sprint Boots | 5 | 200 | 1.75 | -4% weight penalty / level |
-| Reinforced Backpack | 5 | 250 | 1.75 | +20 capacity / level |
+| Reinforced Backpack | 6 | 250 | 1.75 | +20 capacity / level |
 | Reinforced Armor | 5 | 300 | 1.75 | +20 max health / level |
 | Museum Expansion | 2 | 800 | 2.1 | +3 pedestals, +5% income / level |
 | Extra Pedestal | 2 | 500 | 2.1 | +1 pedestal / level |

@@ -18,10 +18,10 @@ Status legend:
 | Requirement | Implementation | Evidence |
 | --- | --- | --- |
 | FR-001 enter temple | `ExpeditionService:RequestEnter`, `HubBuilder` portals | Validated (build); Studio boot |
-| FR-002 collect relic | `RelicService:TryCollect` | Validated (build); Studio (collect path) |
+| FR-002 collect relic | `RelicService:TryCollect`, occupancy-scoped pools via `OnExpeditionStarted`/`OnExpeditionEnded`, `RunRules.spawnPlan` | Tested (spawn-plan + coverage integrity); Validated (build); Studio (collect path) |
 | FR-003 weight slows | `Encumbrance.multiplier/walkSpeed`, `ExpeditionService:RecalculateMovement` | Tested |
 | FR-004 countdown/warnings | `ExpeditionService` timer loop | Validated (build); Manual-only |
-| FR-005 extraction | `ExtractionService`, `TempleBuilder` altar | Studio (extraction confirmed) |
+| FR-005 extraction | `ExtractionService`, `TempleBuilder` altar, `RunRules.extractionCredit` | Tested (credit rule); Studio (extraction confirmed) |
 | FR-006 death/abandon loss | `ExpeditionService:onDeath`, `AbandonExpedition` | Validated (build); Manual-only |
 | FR-007 server hazards | `HazardService` (dart, boulder, blade, collapse), `Util.distanceToSegment2D` | Tested (blade sweep math); Validated (build); Manual-only |
 | FR-007b guardian enemies | `GuardianService`, `TempleBuilder.buildGuardian`, `GameConfig.Enemies` | Tested (config integrity); Validated (build); Manual-only (behaviour) |

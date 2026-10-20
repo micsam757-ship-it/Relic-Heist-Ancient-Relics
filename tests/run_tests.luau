@@ -6,6 +6,7 @@ local Economy = require("../src/shared/Domain/Economy")
 local Encumbrance = require("../src/shared/Domain/Encumbrance")
 local Inventory = require("../src/shared/Domain/Inventory")
 local Progression = require("../src/shared/Domain/Progression")
+local RunRules = require("../src/shared/Domain/RunRules")
 local Schema = require("../src/shared/Domain/Schema")
 local Tutorial = require("../src/shared/Domain/Tutorial")
 local GameConfig = require("../src/shared/Config/GameConfig")
@@ -1016,6 +1017,65 @@ test("temple corridor halls do not overlap along +Z", function()
 		local previousBack = previous.origin.z + previous.hall.length
 		assertTrue(ordered[index].origin.z > previousBack, "temple fronts clear the previous temple's back")
 	end
+end)
+
+-- Run rules (replayable expeditions) ------------------------------------
+
+test("every relic definition spawns in at least one temple", function()
+	local spawned = {}
+	for _, temple in GameConfig.Temples do
+		for _, spawn in temple.relicSpawns do
+			spawned[spawn.definitionId] = true
+		end
+	end
+	for definitionId in GameConfig.Relics do
+		assertTrue(spawned[definitionId] == true, definitionId .. " never spawns in any temple")
+	end
+end)
+
+test("requiredRelics is haulable with the fully upgraded backpack", function()
+	local maxCapacity = Encumbrance.capacity(GameConfig.Movement, GameConfig.Upgrades.Backpack.maxLevel)
+	for templeId, temple in GameConfig.Temples do
+		local weight = RunRules.lightestHaulWeight(temple, GameConfig.Relics)
+		assertTrue(
+			weight <= maxCapacity,
+			string.format("%s requires %d weight but capacity is %d", templeId, weight, maxCapacity)
+		)
+	end
+end)
+
+test("extractionCredit requires a positive haul meeting the temple requirement", function()
+	assertTrue(RunRules.extractionCredit(3, 3), "meeting the requirement counts")
+	assertTrue(RunRules.extractionCredit(5, 3), "exceeding the requirement counts")
+	assertTrue(RunRules.extractionCredit(1, 0), "any relic counts when nothing is required")
+	assertFalse(RunRules.extractionCredit(2, 3), "short haul does not count")
+	assertFalse(RunRules.extractionCredit(0, 0), "empty-handed never counts")
+	assertFalse(RunRules.extractionCredit(0, 1), "zero transfer never counts")
+end)
+
+test("spawnPlan lists every configured spawn deterministically in order", function()
+	for templeId, temple in GameConfig.Temples do
+		local plan = RunRules.spawnPlan(temple)
+		assertEquals(#plan, #temple.relicSpawns, templeId .. " plan length")
+		for index, definitionId in plan do
+			assertEquals(definitionId, temple.relicSpawns[index].definitionId, templeId .. " plan order")
+		end
+		local again = RunRules.spawnPlan(temple)
+		for index, definitionId in plan do
+			assertEquals(again[index], definitionId, templeId .. " plan is deterministic")
+		end
+	end
+end)
+
+test("relic income totals stay under the museum rate cap", function()
+	local total = 0
+	for _, relic in GameConfig.Relics do
+		total += relic.incomePerMinute
+	end
+	assertTrue(
+		total <= GameConfig.Museum.MaxIncomeRatePerMinute,
+		string.format("relic income %d exceeds cap %d", total, GameConfig.Museum.MaxIncomeRatePerMinute)
+	)
 end)
 
 -- Summary ------------------------------------------------------------------

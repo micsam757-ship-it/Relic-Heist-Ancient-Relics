@@ -74,7 +74,7 @@ matches this table exactly, so the two cannot drift. Each handler validates its
 | `OpenPanel` | `{ panel }` | Hub kiosk opened a panel |
 | `ExpeditionStarted` | `{ templeId, templeName, endsAt, durationSeconds, requiredRelics }` | |
 | `ExpeditionWarning` | `{ remaining, level }` | `medium`/`high`/`critical`/`collapse` |
-| `ExpeditionSummary` | `{ success, title, subtitle, lines, relics?, lostRelics?, goldEarned? }` | |
+| `ExpeditionSummary` | `{ success, credited?, title, subtitle, lines, relics?, lostRelics?, goldEarned? }` | `credited` = run counted toward `minExtractions` |
 | `PedestalSelected` | `{ pedestalId, plotIndex }` | Empty pedestal activated |
 | `RelicCollected` | `{ definitionId, rarity }` | |
 | `Damage` | `{ amount, source, health, maxHealth }` | |

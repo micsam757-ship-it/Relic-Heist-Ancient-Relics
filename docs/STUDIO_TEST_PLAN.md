@@ -180,6 +180,19 @@ Requires real ids (see prerequisites).
 
 ---
 
+## Session K — Replayable expeditions and extraction credit
+
+| # | Check | Steps | Expected | Result |
+| --- | --- | --- | --- | --- |
+| K1 | Full-pool replay | Enter the Tutorial Ruins; note 4 relics; extract (or die/abandon); re-enter | The second entry finds a full pool of 4 relics again (relics are not one-per-server-session) | |
+| K2 | Whispering Mask spawn | In the Tutorial Ruins, check the right side of the hall near z ≈ 64 | The teal Rare "Whispering Mask" spawns there with a collect prompt and is missing only after you collect it | |
+| K3 | Empty-hand no credit | Unlock `ForgottenCatacombs`; enter and extract with 0 relics | "Empty-Handed" summary; `!rh_state` shows the extractions stat unchanged | |
+| K4 | Short-haul no credit | In `ForgottenCatacombs` (required 2), extract with 1 relic | Success summary with an "Objective incomplete" line and a warning toast; gold stipend still paid; extractions stat unchanged | |
+| K5 | Qualifying haul | In `ForgottenCatacombs`, extract with 2+ relics | Counted-run toast ("Extracted N relic(s)!"); extractions stat +1; unlock progress advances | |
+| K6 | Shared pool | Two players enter the same temple | One shared relic set (no stacked duplicates); when one extracts the other keeps the remaining pool; when the last player leaves everything despawns; re-entry respawns a full pool | |
+
+---
+
 ## Results log
 
 Copy completed rows here (or straight into `docs/PROJECT_STATUS.md`):
@@ -196,3 +209,4 @@ Copy completed rows here (or straight into `docs/PROJECT_STATUS.md`):
 | H | | | | |
 | I | | | | |
 | J | | | | |
+| K | | | | |

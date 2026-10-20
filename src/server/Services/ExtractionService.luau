@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
 local Economy = require(ReplicatedStorage.Shared.Domain.Economy)
 local Inventory = require(ReplicatedStorage.Shared.Domain.Inventory)
+local RunRules = require(ReplicatedStorage.Shared.Domain.RunRules)
 local PlayerUtil = require(script.Parent.Parent.Utilities.PlayerUtil)
 local RateLimiter = require(script.Parent.Parent.Security.RateLimiter)
 local Logger = require(script.Parent.Parent.Utilities.Logger)
@@ -83,7 +84,13 @@ local function tryExtract(player: Player, templeId: string)
 
 	local bonus = Economy.extractionBonus(totalValue, GameConfig.Economy.ExtractionValueToGold)
 	profile.gold += bonus
-	profile.stats.extractions += 1
+	-- Progression credit (counted toward the next temple's minExtractions
+	-- gate) requires hauling at least the temple's required relic count.
+	-- Gold is always paid; the gate is not.
+	local credited = RunRules.extractionCredit(transferred, temple and temple.requiredRelics or 0)
+	if credited then
+		profile.stats.extractions += 1
+	end
 	profile.stats.relicsCollected += transferred
 	if not profile.tutorialComplete then
 		profile.tutorialComplete = true
@@ -102,12 +109,19 @@ local function tryExtract(player: Player, templeId: string)
 		table.insert(lootLines, string.format("Archive full — %d relic(s) left behind", lostOverflow))
 	end
 	table.insert(lootLines, string.format("Expedition stipend: %d gold", bonus))
+	if not credited and temple then
+		table.insert(
+			lootLines,
+			string.format("Objective incomplete — extract %d relic(s) for this run to count.", temple.requiredRelics)
+		)
+	end
 
 	services.Analytics:Track("expedition_extracted", {
 		temple = templeId,
 		relics = transferred,
 		value = totalValue,
 		bonus = bonus,
+		credited = credited,
 	})
 
 	if transferred == 0 then
@@ -121,13 +135,18 @@ local function tryExtract(player: Player, templeId: string)
 	else
 		services.Network:PushEvent(player, "ExpeditionSummary", {
 			success = true,
+			credited = credited,
 			title = "Extraction Successful",
 			subtitle = temple and temple.name or templeId,
 			relics = lootRelics,
 			goldEarned = bonus,
 			lines = lootLines,
 		})
-		services.Network:Toast(player, "success", string.format("Extracted %d relic(s)!", transferred))
+		if credited then
+			services.Network:Toast(player, "success", string.format("Extracted %d relic(s)!", transferred))
+		else
+			services.Network:Toast(player, "warning", "Extracted, but this run did not count toward your next unlock.")
+		end
 	end
 	services.Network:PushState(player)
 end

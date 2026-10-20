@@ -50,6 +50,9 @@
 - [ ] Whirling blades spin, sweep, and damage only within their hit radius.
 - [ ] Escape countdown warns at 60/30/10; collapse ticks damage.
 - [ ] Extraction transfers relics, grants the stipend, and shows the summary.
+- [ ] Relic pools respawn when a temple empties; a re-entered run finds a full pool.
+- [ ] Short or empty hauls pay the gold stipend but do not advance the next
+      unlock's extraction gate (summary shows "Objective incomplete").
 - [ ] Death and abandon lose carried relics and show the summary.
 - [ ] Exhibited relics appear on pedestals, rotate, and raise income.
 - [ ] Museum income auto-deposits: gold climbs on its own and the top bar eases smoothly.

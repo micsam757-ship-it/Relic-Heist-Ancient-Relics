@@ -345,11 +345,14 @@ GameConfig.Relics = {
 	-- Void Citadel (endgame) relics. These are the top of the progression curve:
 	-- every one is Legendary or Mythic, heavy, and worth far more than the
 	-- Sunken Sanctum haul, so a successful run is the largest single payout.
+	-- The three lightest (38 + 44 + 70 = 152) fit a fully upgraded backpack
+	-- (160), so requiredRelics = 3 below is always haulable; the Eye (88) is
+	-- the greed prize that can only be carried alongside one companion.
 	VoidSigil = {
 		name = "Void Sigil",
 		description = "A black disc that swallows light. The Citadel's wards answer to it.",
 		rarity = "Legendary",
-		weight = 42,
+		weight = 38,
 		value = 4200,
 		incomePerMinute = 120,
 		templeIds = { "VoidCitadel" },
@@ -359,7 +362,7 @@ GameConfig.Relics = {
 		name = "Abyssal Crown",
 		description = "A circlet of pressure-warped gold recovered from the void beyond the sanctum.",
 		rarity = "Legendary",
-		weight = 48,
+		weight = 44,
 		value = 5200,
 		incomePerMinute = 150,
 		templeIds = { "VoidCitadel" },
@@ -369,7 +372,7 @@ GameConfig.Relics = {
 		name = "Starless Idol",
 		description = "An idol carved in a shape the eye refuses to hold. It is always cold.",
 		rarity = "Mythic",
-		weight = 72,
+		weight = 70,
 		value = 20000,
 		incomePerMinute = 380,
 		templeIds = { "VoidCitadel" },
@@ -401,7 +404,7 @@ GameConfig.Upgrades = {
 	Backpack = {
 		name = "Reinforced Backpack",
 		description = "Adds carrying capacity for heavier relics.",
-		maxLevel = 5,
+		maxLevel = 6,
 		basePrice = 250,
 		priceGrowth = 1.75,
 		order = 2,
@@ -511,6 +514,7 @@ GameConfig.Temples = {
 		portalOffset = { x = 0, y = 0, z = 70 },
 		relicSpawns = {
 			{ definitionId = "ClayAnkh", position = { x = -18, y = 4, z = 46 } },
+			{ definitionId = "WhisperingMask", position = { x = 22, y = 4, z = 64 } },
 			{ definitionId = "GoldenScarab", position = { x = 18, y = 4, z = 82 } },
 			{ definitionId = "SunstoneIdol", position = { x = -16, y = 4, z = 122 } },
 		},
@@ -724,7 +728,7 @@ GameConfig.Temples = {
 		minExtractions = 4,
 		unlockPrice = 5000,
 		durationSeconds = 480,
-		requiredRelics = 4,
+		requiredRelics = 3,
 		theme = "void",
 		origin = { x = 0, y = 0, z = 1130 },
 		hall = { width = 84, length = 260, height = 34 },

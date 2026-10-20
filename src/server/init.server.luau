@@ -82,7 +82,6 @@ local startOrder = {
 	"Tutorial",
 	"Plot",
 	"Museum",
-	"Relic",
 	"Hazard",
 	"Guardian",
 	"Extraction",

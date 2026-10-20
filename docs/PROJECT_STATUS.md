@@ -22,7 +22,7 @@ partially verified.
 | Area | Status | Notes |
 | --- | --- | --- |
 | Project scaffolding (Rojo, Stylua, Selene) | Implemented + validated | `rojo build`, `stylua --check`, `selene` all pass |
-| Shared domain logic (Economy, Encumbrance, Inventory, Progression, Schema, Tutorial, Util) | Implemented + tested | 90 assertions pass under the standalone Luau CLI |
+| Shared domain logic (Economy, Encumbrance, Inventory, Progression, RunRules, Schema, Tutorial, Util) | Implemented + tested | 95 assertions pass under the standalone Luau CLI |
 | Content set (4 temples, 16 relics, 4 trap kinds, guardians) | Implemented + tested | Config-integrity tests validate spawns, visuals, trap kinds, guardians, tutorial steps, audio, and the unlock chain |
 | Persistence (DataStore, schema v4 migrations, conflict guard) | Implemented, not run against live DataStore | Logic reviewed + migration tested; Studio/live run pending |
 | Networking (single `Request` action channel + `State`/`Event` streams) | Implemented + validated (build) | Server + client wired |
@@ -37,12 +37,13 @@ partially verified.
 | Hazards (dart, boulder, blade, collapse) | Implemented | Damage math server-side; blade sweep math unit-tested; zones not yet playtested |
 | Guardian enemies (patrol + chase) | Implemented | Config + behaviour server-side; aggressive tuning + last-known-position hunt added (FR-027); config-integrity tested; chase/contact behaviour not yet playtested |
 | Endgame Void Citadel temple (ADR 0011) | Implemented + tested (config) | New final temple with `void` theme, 4 Abyssal relics, VoidWarden kind; builds/unlocks data-driven; geometry not yet playtested |
+| Replayable expeditions + extraction credit | Implemented + tested (domain/config) | Relic pools are occupancy-scoped: spawned on first entry, destroyed when the temple empties (`RelicService:OnExpeditionStarted`/`OnExpeditionEnded`), so every run starts from a full pool. `stats.extractions` is credited only when a haul meets the temple's `requiredRelics` (`RunRules.extractionCredit`); gold is always paid. WhisperingMask now spawns in the Tutorial Ruins; Void Citadel `requiredRelics` is 3 with its three lightest relics trimmed to fit the new backpack max level 6 (160 capacity). In-Studio replay/credit paths not yet playtested |
 | Instant Revive product (ADR 0011) | Implemented, stub ID | Offer/grant/`ProcessReceipt` + client modal + contract tested; real Product ID and a live purchase test pending |
 | Passive income | Implemented | 1s server auto-deposit + offline held for the Welcome Back modal; live tick and gold interpolation not yet playtested |
 | Monetization (Welcome Back offer, VIP Pass, Instant Revive) | Implemented, stub IDs | Flow + policy documented (`docs/MONETIZATION.md`); real Product/Pass IDs and a live purchase test pending |
 | Static analysis | Implemented + validated | `selene`: 0 errors / 0 warnings |
 | Type check (pure modules) | Implemented + validated | `luau-analyze src/shared` clean |
-| Automated logic tests | Implemented + validated | `luau tests/run_tests.luau` — 90 assertions |
+| Automated logic tests | Implemented + validated | `luau tests/run_tests.luau` — 95 assertions |
 | Exploit-resistance tests (input validation, rate limiting, save conflict guard) | Implemented + tested | Pure `Validate` / `RateLimiter` / `Persist` modules extracted from the hot path |
 | Persistence failure-mode tests (load outcome, retry bounds) | Implemented + tested | Pure `Persist.loadOutcome`/`retryBackoff`; matrix in `docs/DATA_MODEL.md` |
 | Network contract tests (action registry + data shapes) | Implemented + tested | Pure `Contracts` module; drift guard against `docs/API_CONTRACTS.md` |
@@ -62,7 +63,7 @@ All commands were run from the repository root on Windows.
 rojo build default.project.json -o <out>.rbxlx   -> Built project ... (success)
 stylua --check .                                 -> no diff
 selene src tests                                 -> 0 errors, 0 warnings, 0 parse errors
-luau tests/run_tests.luau                         -> 90 passed, 0 failed
+luau tests/run_tests.luau                         -> 95 passed, 0 failed
 luau tests/bench.luau                             -> report (see docs/PERFORMANCE.md)
 luau-analyze src/shared/Domain src/shared/Config  -> no output (clean)
 ```
@@ -114,6 +115,10 @@ confirmed here and the Guardian fix in particular still needs a replay:
 - Guardian aggro/chase/attack after defect 4 (replay session C), including the new
   aggressive tuning and the last-known-position hunt through broken line of sight
   (FR-027).
+- Replayable expeditions in-session: relics respawn after the temple empties;
+  a second run finds a full pool; two players sharing a temple see one pool;
+  empty-handed and short-haul extractions show the objective-incomplete feedback
+  and do not advance `minExtractions` gates.
 - The endgame Void Citadel: it builds, appears on a hub portal, unlocks at 4
   extractions + 5000 gold, and its `void` geometry renders (ADR 0011).
 - The Instant Revive flow end-to-end: the offer after a death in Sunken Sanctum /

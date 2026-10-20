@@ -30,8 +30,10 @@ snapshot. It never computes rewards, prices, damage, or ownership.
    - `Economy` - upgrade cost, income rate, offline income, extraction bonus.
    - `Encumbrance` - carry capacity, walk-speed multiplier, capacity checks.
    - `Inventory` - owned-relic and pedestal-assignment transitions.
-   - `Progression` - temple unlock rules.
-   - `Schema` - profile shape, versioned migrations, normalization.
+    - `Progression` - temple unlock rules.
+    - `RunRules` - expedition spawn plan, extraction credit, and the relic
+      haulability invariant.
+    - `Schema` - profile shape, versioned migrations, normalization.
    - `MuseumBuilder` - museum wing layout, pedestal placement/tiering, and
      building-enhancement levels (see `docs/ADR/0010-museum-expansion.md`).
    Being pure, they run under the standalone Luau CLI for tests.
@@ -43,6 +45,11 @@ snapshot. It never computes rewards, prices, damage, or ownership.
    `ctx` (`{ Config, Services, World, Signals, Logger }`) and expose `Init(ctx)`
    and `Start()`. `MonetizationService` owns the Welcome Back offline claim, the
    VIP Pass, and the Instant Revive product (see `docs/MONETIZATION.md`).
+   `RelicService` scopes relic pools to temple occupancy — spawned when the
+   first player enters (`ExpeditionService:RequestEnter` calls
+   `OnExpeditionStarted`) and destroyed when the last leaves (`clearExpedition`
+   calls `OnExpeditionEnded`) — so expeditions are replayable and a shared
+   temple never shows stacked duplicate pickups.
 
 5. **Server / World** - builds the unified ground, hub, temples, connecting
    avenues, and museum plots at runtime from `GameConfig` and returns typed
@@ -70,7 +77,8 @@ snapshot. It never computes rewards, prices, damage, or ownership.
    fresh state; hub kiosk prompts push `OpenPanel` events.
 4. `Start()` in dependency order:
    `Network, Analytics, Monetization, Economy, Upgrade, Progression, Settings,
-   Tutorial, Plot, Museum, Relic, Hazard, Guardian, Extraction, Expedition, Admin`.
+   Tutorial, Plot, Museum, Hazard, Guardian, Extraction, Expedition, Admin`
+   (`RelicService` has no `Start()`; its pools spawn lazily on first entry).
    Monetization starts before Economy so the cached VIP entitlement is known when
    the offline cap is computed; Guardian starts after Hazard because it routes
    contact damage through `HazardService:DamagePlayer`.

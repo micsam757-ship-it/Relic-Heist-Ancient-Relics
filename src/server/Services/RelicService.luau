@@ -170,10 +170,43 @@ function RelicService:TryCollect(player: Player, entry)
 	state.ctx.Services.Network:PushState(player)
 end
 
-function RelicService:Start()
-	for templeId, runtime in state.ctx.World.Temples do
-		RelicService:SpawnTempleRelics(templeId, runtime)
+-- Relic pools are scoped to temple occupancy: spawned when the first player
+-- enters, destroyed when the last one leaves. Every expedition therefore
+-- starts from a full pool (replayable runs) without stacking duplicate
+-- pickups for players who share a temple.
+function RelicService:OnExpeditionStarted(_player: Player, templeId: string)
+	if state.pickups[templeId] ~= nil then
+		return
 	end
+	local runtime = state.ctx.World.Temples[templeId]
+	if runtime == nil then
+		return
+	end
+	RelicService:SpawnTempleRelics(templeId, runtime)
+end
+
+function RelicService:OnExpeditionEnded(_player: Player, templeId: string)
+	if #state.ctx.Services.Expedition:GetPlayersInTemple(templeId) > 0 then
+		return
+	end
+	RelicService:DespawnTempleRelics(templeId)
+end
+
+function RelicService:DespawnTempleRelics(templeId: string)
+	local entries = state.pickups[templeId]
+	if entries == nil then
+		return
+	end
+	for _, entry in entries do
+		entry.collected = true
+		if entry.prompt then
+			entry.prompt.Enabled = false
+		end
+		if entry.model then
+			entry.model:Destroy()
+		end
+	end
+	state.pickups[templeId] = nil
 end
 
 return RelicService

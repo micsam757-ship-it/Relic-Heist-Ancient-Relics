@@ -18,14 +18,19 @@ referenced by `docs/traceability/requirements-matrix.md`.
   based, not already on an expedition).
 - **FR-002** Temples spawn configured relics with ProximityPrompts. Collecting a
   relic is server-validated (in the correct temple, not collapsing, within
-  range, under rate limit, within weight and count capacity).
+  range, under rate limit, within weight and count capacity). Relic pools are
+  scoped to temple occupancy — spawned when the first player enters and
+  destroyed when the last leaves — so every expedition starts from a full,
+  replayable pool.
 - **FR-003** Carried weight reduces walk speed via `Encumbrance.multiplier`,
   clamped to `MinSpeedMultiplier`.
 - **FR-004** An expedition has a countdown. At thresholds the server fires
   60/30/10-second warnings; at zero it begins collapse damage.
 - **FR-005** Extraction at the temple altar is the only way to convert carried
   relics into owned relics. Extraction requires being on an expedition for that
-  temple and within range of the altar, and is idempotent.
+  temple and within range of the altar, and is idempotent. A counted extraction
+  (one that advances the next temple's `minExtractions` gate) requires hauling
+  at least the temple's `requiredRelics` count; the gold stipend is always paid.
 - **FR-006** Dying or abandoning loses all carried relics and increments the
   death statistic.
 - **FR-007** Hazards (dart, boulder, blade, collapse) deal server-side damage
