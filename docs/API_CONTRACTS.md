@@ -21,24 +21,29 @@ as an error, a `true` result toasts it as success.
 
 ### Registered actions
 
+The canonical registry is `src/shared/Net/Contracts.luau`; a test asserts it
+matches this table exactly, so the two cannot drift. Each handler validates its
+`data` through `Contracts.check(action, data)`.
+
 | Action | Data | Notes |
 | --- | --- | --- |
 | `RequestState` | - | Re-send a snapshot; allowed before profile load |
-| `ClaimIncome` | - | Claim pending income |
 | `EnterExpedition` | `{ templeId }` | Must be near the hub |
 | `AbandonExpedition` | - | Lose carried relics |
 | `BuyUpgrade` | `{ upgradeId }` | |
 | `UnlockTemple` | `{ templeId }` | |
-| `UpdateSettings` | `{ soundEnabled?, visualEffects? }` | |
+| `UpdateSettings` | `{ soundEnabled?, visualEffects?, reducedMotion?, colorblindMode?, textScale? }` | `textScale` must be `Normal`/`Large`/`Huge` |
 | `PlaceRelic` | `{ pedestalId, uid }` | Near the pedestal |
 | `RemoveRelic` | `{ pedestalId }` | Near the pedestal |
+| `ClaimOfflineIncome` | - | Free 1x claim of `pendingOfflineGold` |
+| `PurchaseOfflineDouble` | - | Prompt the 199-Robux 2x Developer Product |
 
 ### `State` snapshot (client-facing)
 
 ```lua
 {
-  serverNow, gold, incomePerMinute, pendingIncome, lastIncomeClaimAt,
-  relics = { { uid, id, name, rarity, weight, value, incomePerMinute, acquiredAt, exhibited } },
+  serverNow, gold, incomePerSecond,
+  relics = { { uid, id, name, rarity, weight, value, incomePerSecond, acquiredAt, exhibited } },
   displayed = { [pedestalId] = uid },
   pedestals = { { id, unlocked, uid } },
   pedestalCount, exhibitedCount,
@@ -46,8 +51,12 @@ as an error, a `true` result toasts it as success.
   capacity, armorLevel,
   temples = { { id, name, description, difficulty, order, unlocked, requirementsMet, canUnlock, minExtractions, unlockPrice, requiredRelics, durationSeconds, relicCount } },
   expedition = nil | { templeId, templeName, startedAt, endsAt, collapsing, carried, weight, capacity, speedMultiplier, requiredRelics, durationSeconds, remainingRelics },
-  stats, settings, tutorialComplete, plotIndex, ephemeral,
+  stats, settings, tutorialComplete,
+  tutorial = { active, total, completed, step = nil | { id, title, text, hint, complete } },
+  plotIndex, ephemeral,
   maxCarried, offlineCapSeconds,
+  vip, pendingOfflineGold,
+  offlineDouble = { multiplier, priceRobux, purchasable },
 }
 ```
 
@@ -69,6 +78,10 @@ as an error, a `true` result toasts it as success.
 | `Damage` | `{ amount, source, health, maxHealth }` | |
 | `HazardWarning` | `{ label, kind, warningSeconds }` | Telegraph before a trap fires |
 | `HazardFired` | `{ label, kind }` | Trap resolved |
+| `WelcomeBack` | `{ amount, multiplier, priceRobux, purchasable, vip, capSeconds }` | Offline income pending; open the modal |
+| `WelcomeBackClosed` | `{}` | Claim resolved; close the modal |
+| `TutorialStep` | `{ completed, total, active, step }` | A tutorial step advanced; update the objective |
+| `TutorialComplete` | `{}` | The final tutorial step finished |
 
 ## Error and validation rules
 

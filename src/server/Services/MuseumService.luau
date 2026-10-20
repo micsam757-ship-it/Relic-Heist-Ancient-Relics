@@ -5,6 +5,7 @@ local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
+local Contracts = require(ReplicatedStorage.Shared.Net.Contracts)
 local Economy = require(ReplicatedStorage.Shared.Domain.Economy)
 local Inventory = require(ReplicatedStorage.Shared.Domain.Inventory)
 local RelicVisuals = require(script.Parent.Parent.World.RelicVisuals)
@@ -198,7 +199,8 @@ function MuseumService:Start()
 	end)
 
 	state.ctx.Services.Network:RegisterAction("PlaceRelic", function(player, data)
-		if type(data) ~= "table" or type(data.pedestalId) ~= "string" or type(data.uid) ~= "string" then
+		local valid = Contracts.check("PlaceRelic", data)
+		if not valid then
 			return false, "Invalid placement request."
 		end
 		local profile = profileOf(player)
@@ -228,11 +230,15 @@ function MuseumService:Start()
 		MuseumService:Refresh(player)
 		state.ctx.Services.PlayerData:MarkDirty(player)
 		state.ctx.Services.Analytics:Track("relic_exhibited", {})
+		if state.ctx.Services.Tutorial then
+			state.ctx.Services.Tutorial:Advance(player, "exhibited")
+		end
 		return true, string.format("Exhibited %s.", GameConfig.Relics[owned.id].name)
 	end, { perSecond = 3, burst = 6 })
 
 	state.ctx.Services.Network:RegisterAction("RemoveRelic", function(player, data)
-		if type(data) ~= "table" or type(data.pedestalId) ~= "string" then
+		local valid = Contracts.check("RemoveRelic", data)
+		if not valid then
 			return false, "Invalid request."
 		end
 		local profile = profileOf(player)

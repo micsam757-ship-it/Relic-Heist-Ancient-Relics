@@ -4,24 +4,51 @@
 
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
 local Theme = require(script.Parent.Theme)
 local Components = require(script.Parent.Components)
 local Panels = require(script.Parent.Panels)
 local State = require(script.Parent.Parent.State)
 local Net = require(script.Parent.Parent.Net)
+local Preferences = require(script.Parent.Parent.Preferences)
+local Audio = require(script.Parent.Parent.Controllers.SoundController)
 
 local UIRoot = {}
 
 local refs = {}
 local activePanel = nil
+local welcomeBackOpen = false
 local timeOffset = 0
 local lastHudRefresh = 0
+local lastHeartbeat = 0
+
+-- Gold is interpolated client-side between authoritative snapshots so it climbs
+-- smoothly instead of stepping once per second. The server stays authoritative:
+-- `goldDisplayed` always eases toward the extrapolated target and snaps on a
+-- downward correction (a purchase), never inventing gold the server did not grant.
+local goldDisplayed = nil
+local goldBase = 0
+local goldBaseAt = 0
+local goldRate = 0
 
 -- The timer only needs whole-second resolution and the weight bar only needs to
 -- feel responsive, so 10 Hz is plenty. Refreshing every Heartbeat would spam
 -- string formatting and tween creation for no visible benefit.
 local HUD_REFRESH_INTERVAL = 0.1
+
+-- Reference resolution the layout is authored against, and the smallest scale we
+-- allow before text becomes unreadable (below it, the GUI would be too small).
+local RESPONSIVE_BASE_WIDTH = 1280
+local RESPONSIVE_BASE_HEIGHT = 720
+local RESPONSIVE_MIN_SCALE = 0.62
+
+-- On touch devices the keyboard hint in nav buttons is meaningless, so it is
+-- dropped and targets grow slightly for fingers.
+local TOUCH_NAV_BUTTON_SIZE = UDim2.fromOffset(96, 44)
+local DESKTOP_NAV_BUTTON_SIZE = UDim2.fromOffset(104, 40)
 
 local PANEL_TITLES = {
 	Expeditions = "Expeditions",
@@ -58,6 +85,29 @@ function UIRoot.build(playerGui: Instance)
 	screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	screen.Parent = playerGui
 	refs.screen = screen
+
+	-- Responsive scaling: the layout is authored at a reference width, then the
+	-- whole GUI is uniformly scaled down on narrower viewports so modals and the
+	-- top bar never overflow on phones or small windows. It only ever shrinks
+	-- (never upscales), so desktop stays pixel-crisp at 1.0.
+	refs.scale = Instance.new("UIScale")
+	refs.scale.Name = "ResponsiveScale"
+	refs.scale.Parent = screen
+
+	refs.isTouch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+
+	local camera = workspace.CurrentCamera
+	local function updateScale()
+		local viewport = camera and camera.ViewportSize or Vector2.new(1280, 720)
+		local widthFactor = viewport.X / RESPONSIVE_BASE_WIDTH
+		local heightFactor = viewport.Y / RESPONSIVE_BASE_HEIGHT
+		local factor = math.min(widthFactor, heightFactor, 1)
+		refs.scale.Scale = math.clamp(factor, RESPONSIVE_MIN_SCALE, 1)
+	end
+	updateScale()
+	if camera then
+		camera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
+	end
 
 	local topBar = Components.panel(screen, {
 		Name = "TopBar",
@@ -100,24 +150,12 @@ function UIRoot.build(playerGui: Instance)
 
 	refs.incomeLabel = Components.label(topBar, {
 		Name = "Income",
-		Text = "+0/min",
+		Text = "+0/sec",
 		Font = Theme.Font.Body,
 		TextSize = Theme.TextSize.Small,
 		TextColor = Theme.Color.Cyan,
 		Size = UDim2.fromOffset(120, 30),
 		Position = UDim2.fromOffset(262, 30),
-	})
-
-	refs.claimButton = Components.button(topBar, {
-		Name = "Claim",
-		Text = "Claim Income",
-		Size = UDim2.fromOffset(150, 40),
-		Position = UDim2.fromOffset(388, 10),
-		Color = Theme.Color.CyanDeep,
-		Cooldown = 1,
-		OnClick = function()
-			Net.send("ClaimIncome")
-		end,
 	})
 
 	local nav = Instance.new("Frame")
@@ -143,8 +181,8 @@ function UIRoot.build(playerGui: Instance)
 	for _, entry in navEntries do
 		Components.button(nav, {
 			Name = entry.name,
-			Text = string.format("%s [%s]", entry.name, entry.key),
-			Size = UDim2.fromOffset(104, 40),
+			Text = refs.isTouch and entry.name or string.format("%s [%s]", entry.name, entry.key),
+			Size = refs.isTouch and TOUCH_NAV_BUTTON_SIZE or DESKTOP_NAV_BUTTON_SIZE,
 			Color = Theme.Color.PanelRaised,
 			OnClick = function()
 				UIRoot.togglePanel(entry.name)
@@ -226,6 +264,48 @@ function UIRoot.build(playerGui: Instance)
 		end,
 	})
 
+	-- Persistent tutorial objective: a compact bar under the top bar showing the
+	-- current step, its hint, and progress. Hidden when the tutorial is done.
+	refs.objective = Components.panel(screen, {
+		Name = "TutorialObjective",
+		Size = UDim2.fromOffset(340, 60),
+		Position = UDim2.new(0.5, 0, 0, 68),
+		AnchorPoint = Vector2.new(0.5, 0),
+		Color = Theme.Color.Panel,
+		Radius = Theme.Radius.Medium,
+		StrokeColor = Theme.Color.GoldDeep,
+		ClipsDescendants = true,
+	})
+	refs.objective.Visible = false
+	refs.objectiveTitle = Components.label(refs.objective, {
+		Name = "StepTitle",
+		Text = "",
+		Font = Theme.Font.Heading,
+		TextSize = Theme.TextSize.Small,
+		TextColor = Theme.Color.Gold,
+		Size = UDim2.new(1, -20, 0, 20),
+		Position = UDim2.fromOffset(10, 6),
+	})
+	refs.objectiveHint = Components.label(refs.objective, {
+		Name = "StepHint",
+		Text = "",
+		Font = Theme.Font.Body,
+		TextSize = Theme.TextSize.Small,
+		TextColor = Theme.Color.Text,
+		Size = UDim2.new(1, -20, 0, 20),
+		Position = UDim2.fromOffset(10, 26),
+	})
+	refs.objectiveProgress = Components.label(refs.objective, {
+		Name = "StepProgress",
+		Text = "",
+		Font = Theme.Font.Body,
+		TextSize = Theme.TextSize.Small,
+		TextColor = Theme.Color.TextMuted,
+		AlignX = Enum.TextXAlignment.Right,
+		Size = UDim2.fromOffset(60, 20),
+		Position = UDim2.new(1, -70, 0, 6),
+	})
+
 	refs.modalHost = Instance.new("Frame")
 	refs.modalHost.Name = "ModalHost"
 	refs.modalHost.BackgroundTransparency = 1
@@ -252,8 +332,8 @@ function UIRoot.build(playerGui: Instance)
 		UIRoot.render(snapshot)
 	end)
 
-	RunService.Heartbeat:Connect(function()
-		UIRoot.tick()
+	RunService.Heartbeat:Connect(function(deltaTime)
+		UIRoot.tick(deltaTime)
 	end)
 end
 
@@ -276,6 +356,7 @@ function UIRoot.closePanel()
 	if activePanel then
 		activePanel.destroy()
 		activePanel = nil
+		Audio.play("UiClose")
 	end
 end
 
@@ -300,6 +381,7 @@ function UIRoot.openPanel(name: string)
 		render = render,
 		destroy = modal.destroy,
 	}
+	Audio.play("UiOpen")
 	UIRoot.render(State.get())
 end
 
@@ -309,24 +391,80 @@ function UIRoot.render(snapshot)
 	end
 	timeOffset = os.time() - snapshot.serverNow
 
-	refs.goldLabel.Text = formatNumberShort(snapshot.gold)
-	refs.incomeLabel.Text = string.format("+%s/min", formatNumberShort(snapshot.incomePerMinute))
+	-- Apply accessibility/feedback preferences before building any UI so newly
+	-- created widgets pick up the current palette and text scale. If the text
+	-- scale changed, rebuild the open panel so its labels resize too.
+	local textScaleChanged = Preferences.apply(snapshot.settings)
+	if textScaleChanged and activePanel then
+		local name = activePanel.name
+		UIRoot.closePanel()
+		UIRoot.openPanel(name)
+	end
 
-	local claimable = snapshot.pendingIncome >= 1
-	Components.setDisabled(refs.claimButton, not claimable)
-	refs.claimButton.Text = claimable and string.format("Claim %s", formatNumberShort(snapshot.pendingIncome))
-		or "Claim Income"
+	UIRoot.renderTutorial(snapshot.tutorial)
+
+	local target = snapshot.gold
+	if goldDisplayed == nil or target < goldDisplayed - 0.5 then
+		-- First snapshot, or a downward correction (purchase): snap to truth.
+		goldDisplayed = target
+	elseif target > goldDisplayed then
+		-- Server granted a lump (offline income, rewards): ease toward it.
+		goldDisplayed = math.min(target, goldDisplayed + (target - goldDisplayed) * 0.5)
+	end
+	goldBase = target
+	goldBaseAt = os.clock()
+	goldRate = snapshot.incomePerSecond or 0
+
+	refs.goldLabel.Text = formatNumberShort(goldDisplayed)
+	refs.incomeLabel.Text = string.format("+%s/sec", formatNumberShort(goldRate * 10 / 10))
 
 	if activePanel and activePanel.render then
 		activePanel.render(snapshot)
 	end
 end
 
-function UIRoot.tick()
+-- Renders the persistent tutorial objective from the snapshot's `tutorial` view.
+function UIRoot.renderTutorial(tutorial)
+	if refs.objective == nil then
+		return
+	end
+	if tutorial == nil or not tutorial.active or tutorial.step == nil then
+		refs.objective.Visible = false
+		return
+	end
+	refs.objective.Visible = true
+	refs.objectiveTitle.Text = tostring(tutorial.step.title or "")
+	refs.objectiveHint.Text = tostring(tutorial.step.hint or tutorial.step.text or "")
+	refs.objectiveProgress.Text = string.format("%d/%d", tutorial.completed, tutorial.total)
+end
+
+-- Called when the server reports a step advance so the player gets a cue.
+function UIRoot.tutorialAdvance()
+	Audio.play("TutorialAdvance")
+end
+
+function UIRoot.tutorialComplete()
+	Audio.play("TutorialComplete")
+	UIRoot.toast("success", "Tutorial complete!")
+end
+
+function UIRoot.tick(deltaTime: number?)
 	local snapshot = State.get()
 	if snapshot == nil then
 		return
 	end
+	local dt = deltaTime or (os.clock() - lastHeartbeat)
+	lastHeartbeat = os.clock()
+
+	if goldDisplayed ~= nil then
+		-- Extrapolate the true balance from the last snapshot, then ease the
+		-- displayed value toward it so live income reads as a smooth climb.
+		local extrapolated = goldBase + goldRate * (os.clock() - goldBaseAt)
+		local goal = math.max(goldDisplayed, extrapolated)
+		goldDisplayed += (goal - goldDisplayed) * math.min(1, dt * 6)
+		refs.goldLabel.Text = formatNumberShort(goldDisplayed)
+	end
+
 	local expedition = snapshot.expedition
 	if expedition then
 		local now = os.clock()
@@ -356,6 +494,122 @@ function UIRoot.tick()
 	elseif refs.hud.Visible then
 		refs.hud.Visible = false
 	end
+end
+
+-- Welcome Back offline-earnings modal. The free 1x claim is always offered; the
+-- 2x option is a paid Developer Product and is only shown when configured on the
+-- server. The client never grants gold; both buttons send a request.
+function UIRoot.showWelcomeBack(payload)
+	if welcomeBackOpen then
+		return
+	end
+	welcomeBackOpen = true
+
+	local backdrop = Instance.new("TextButton")
+	backdrop.Name = "WelcomeBackBackdrop"
+	backdrop.Size = UDim2.fromScale(1, 1)
+	backdrop.BackgroundColor3 = Theme.Color.Scrim
+	backdrop.BackgroundTransparency = 0.4
+	backdrop.Text = ""
+	backdrop.AutoButtonColor = false
+	backdrop.ZIndex = 34
+	backdrop.Parent = refs.summaryHost
+
+	local card = Components.panel(backdrop, {
+		Size = UDim2.fromOffset(520, 360),
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Color = Theme.Color.Panel,
+		Radius = Theme.Radius.Large,
+		StrokeColor = Theme.Color.Gold,
+		ClipsDescendants = true,
+	})
+	card.ZIndex = 35
+
+	Components.label(card, {
+		Text = "Welcome Back",
+		Font = Theme.Font.Title,
+		TextSize = Theme.TextSize.Title,
+		TextColor = Theme.Color.Gold,
+		Size = UDim2.new(1, -24, 0, 44),
+		Position = UDim2.fromOffset(20, 18),
+		AlignX = Enum.TextXAlignment.Center,
+	})
+	Components.label(card, {
+		Text = "Your museum earned gold while you were away.",
+		Font = Theme.Font.Body,
+		TextSize = Theme.TextSize.Body,
+		TextColor = Theme.Color.TextMuted,
+		Size = UDim2.new(1, -24, 0, 26),
+		Position = UDim2.fromOffset(20, 60),
+		AlignX = Enum.TextXAlignment.Center,
+	})
+	Components.label(card, {
+		Name = "Amount",
+		Text = string.format("%s gold", formatNumberShort(payload.amount or 0)),
+		Font = Theme.Font.Title,
+		TextSize = Theme.TextSize.Title,
+		TextColor = Theme.Color.Text,
+		Size = UDim2.new(1, -24, 0, 48),
+		Position = UDim2.fromOffset(20, 92),
+		AlignX = Enum.TextXAlignment.Center,
+	})
+
+	local capHours = math.floor((payload.capSeconds or 0) / 3600)
+	local tierLabel = payload.vip and "VIP Pass: 24h offline window" or string.format("%dh offline window", capHours)
+	Components.label(card, {
+		Name = "CapNote",
+		Text = tierLabel,
+		Font = Theme.Font.Body,
+		TextSize = Theme.TextSize.Small,
+		TextColor = Theme.Color.Cyan,
+		Size = UDim2.new(1, -24, 0, 22),
+		Position = UDim2.fromOffset(20, 142),
+		AlignX = Enum.TextXAlignment.Center,
+	})
+
+	local function close()
+		backdrop:Destroy()
+		welcomeBackOpen = false
+	end
+
+	Components.button(card, {
+		Name = "ClaimFree",
+		Text = "Claim 1x (Free)",
+		Size = UDim2.new(1, -40, 0, 44),
+		Position = UDim2.new(0, 20, 1, -116),
+		Color = Theme.Color.Success,
+		TextColor = Theme.Color.Background,
+		OnClick = function()
+			Net.send("ClaimOfflineIncome")
+			close()
+		end,
+	})
+
+	if payload.purchasable then
+		local multiplier = tonumber(payload.multiplier) or 2
+		Components.button(card, {
+			Name = "ClaimDouble",
+			Text = string.format("Claim %dx  (%d Robux)", multiplier, tonumber(payload.priceRobux) or 0),
+			Size = UDim2.new(1, -40, 0, 44),
+			Position = UDim2.new(0, 20, 1, -64),
+			Color = Theme.Color.Gold,
+			TextColor = Theme.Color.Background,
+			OnClick = function()
+				Net.send("PurchaseOfflineDouble")
+			end,
+		})
+	end
+end
+
+function UIRoot.closeWelcomeBack()
+	if refs.summaryHost then
+		local existing = refs.summaryHost:FindFirstChild("WelcomeBackBackdrop")
+		if existing then
+			existing:Destroy()
+		end
+	end
+	welcomeBackOpen = false
 end
 
 function UIRoot.showSummary(payload)
@@ -569,6 +823,12 @@ function UIRoot.showTutorial()
 	if refs.tutorialHost:FindFirstChild("TutorialCard") then
 		return
 	end
+	local steps = (GameConfig.Tutorial and GameConfig.Tutorial.Steps) or {}
+	local intro = steps[1]
+	local title = intro and intro.title or "First Heist"
+	local body = intro and intro.text
+		or "Enter the Tutorial Ruins, snatch the relics, then carry them to the extraction altar."
+
 	local card = Components.panel(refs.tutorialHost, {
 		Name = "TutorialCard",
 		Size = UDim2.fromOffset(420, 180),
@@ -580,7 +840,7 @@ function UIRoot.showTutorial()
 	})
 	card.BackgroundTransparency = 0.15
 	Components.label(card, {
-		Text = "First Heist",
+		Text = title,
 		Font = Theme.Font.Title,
 		TextSize = Theme.TextSize.Heading,
 		TextColor = Theme.Color.Gold,
@@ -588,7 +848,7 @@ function UIRoot.showTutorial()
 		Position = UDim2.fromOffset(16, 12),
 	})
 	Components.label(card, {
-		Text = "Side with the Tutorial Ruins portal, snatch the relics, then carry them to the extraction altar before the ground shakes. Only extracted relics are yours to keep.",
+		Text = body,
 		Font = Theme.Font.Body,
 		TextSize = Theme.TextSize.Small,
 		TextColor = Theme.Color.Text,
@@ -610,24 +870,29 @@ function UIRoot.damageFlash()
 	if refs.screen == nil then
 		return
 	end
+	if not Preferences.visualEffects() then
+		return
+	end
 	local flash = Instance.new("Frame")
 	flash.Name = "DamageFlash"
 	flash.Size = UDim2.fromScale(1, 1)
 	flash.BackgroundColor3 = Theme.Color.Danger
-	flash.BackgroundTransparency = 0.7
 	flash.BorderSizePixel = 0
 	flash.ZIndex = 5
 	flash.Parent = refs.screen
+	if Preferences.reducedMotion() then
+		-- No fade animation: a brief static tint, then clear.
+		flash.BackgroundTransparency = 0.9
+		task.delay(0.2, function()
+			flash:Destroy()
+		end)
+		return
+	end
+	flash.BackgroundTransparency = 0.7
 	TweenService:Create(flash, TweenInfo.new(0.45), { BackgroundTransparency = 1 }):Play()
 	task.delay(0.5, function()
 		flash:Destroy()
 	end)
-end
-
-function UIRoot.setTutorialVisible(visible: boolean)
-	if refs.tutorialHost then
-		refs.tutorialHost.Visible = visible
-	end
 end
 
 return UIRoot

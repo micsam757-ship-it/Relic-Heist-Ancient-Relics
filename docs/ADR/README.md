@@ -7,9 +7,13 @@ Decision, Consequences, Alternatives.
 | --- | --- | --- |
 | [0001](0001-server-authority-single-remote.md) | Server authority via one request remote | Accepted |
 | [0002](0002-pure-domain-modules.md) | Pure, Roblox-free domain modules | Accepted |
-| [0003](0003-on-demand-income.md) | On-demand passive income from a timestamp | Accepted |
+| [0003](0003-on-demand-income.md) | On-demand passive income from a timestamp | Superseded by 0006 |
 | [0004](0004-rojo-init-script-layout.md) | Rojo init-script directory layout | Accepted |
 | [0005](0005-data-driven-config.md) | Content and balance live in GameConfig | Accepted |
+| [0006](0006-auto-tick-income.md) | Auto-tick live income, keep offline accrual | Accepted (offline grant superseded by 0007) |
+| [0007](0007-monetization.md) | Welcome Back offline claim and VIP Pass | Accepted |
+| [0008](0008-guardian-enemies.md) | Guardian enemies (patrol + aggro chase) | Accepted |
+| [0009](0009-tutorial-and-ux.md) | Data-driven tutorial and accessibility preferences | Accepted |
 
 Add a new ADR (next number) whenever a change alters architecture, security,
 persistence, or a public contract. Never edit an accepted ADR's decision; add a

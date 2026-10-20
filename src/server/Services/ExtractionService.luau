@@ -89,6 +89,9 @@ local function tryExtract(player: Player, templeId: string)
 		profile.tutorialComplete = true
 		services.Analytics:Track("tutorial_completed", {})
 	end
+	if services.Tutorial then
+		services.Tutorial:Advance(player, "extracted")
+	end
 
 	services.Expedition:EndExpedition(player)
 	services.PlayerData:MarkDirty(player)

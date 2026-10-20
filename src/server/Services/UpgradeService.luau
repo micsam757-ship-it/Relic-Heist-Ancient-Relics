@@ -4,6 +4,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
+local Contracts = require(ReplicatedStorage.Shared.Net.Contracts)
 local Economy = require(ReplicatedStorage.Shared.Domain.Economy)
 local PlayerUtil = require(script.Parent.Parent.Utilities.PlayerUtil)
 
@@ -35,7 +36,8 @@ end
 
 function UpgradeService:Start()
 	state.ctx.Services.Network:RegisterAction("BuyUpgrade", function(player, data)
-		if type(data) ~= "table" or type(data.upgradeId) ~= "string" then
+		local valid = Contracts.check("BuyUpgrade", data)
+		if not valid then
 			return false, "Invalid purchase request."
 		end
 		local profile = state.ctx.Services.PlayerData:GetProfile(player)

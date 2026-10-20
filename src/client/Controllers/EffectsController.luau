@@ -1,9 +1,12 @@
 --!nonstrict
 -- Purely cosmetic client effects: slowly rotate exhibited relics and bob
--- collectible relics in the world.
+-- collectible relics in the world. Honors the player's settings: `visualEffects`
+-- off disables them entirely; `reducedMotion` keeps relics in place (no bobbing).
 
 local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
+
+local Preferences = require(script.Parent.Parent.Preferences)
 
 local EffectsController = {}
 
@@ -33,12 +36,18 @@ function EffectsController.start()
 	local pickups = track("RelicPickup")
 
 	RunService.Heartbeat:Connect(function(deltaTime)
+		if not Preferences.visualEffects() then
+			return
+		end
 		for instance, data in displays do
 			if instance.Parent == nil then
 				displays[instance] = nil
 				continue
 			end
 			instance:PivotTo(data.base * CFrame.Angles(0, deltaTime * 0.5, 0))
+		end
+		if Preferences.reducedMotion() then
+			return
 		end
 		local clock = os.clock()
 		for instance, data in pickups do

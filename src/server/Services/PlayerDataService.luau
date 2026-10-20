@@ -15,6 +15,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
 local Schema = require(ReplicatedStorage.Shared.Domain.Schema)
+local Persist = require(ReplicatedStorage.Shared.Utilities.Persist)
 local Util = require(ReplicatedStorage.Shared.Utilities.Util)
 local Ids = require(script.Parent.Parent.Utilities.Ids)
 local Logger = require(script.Parent.Parent.Utilities.Logger)
@@ -65,15 +66,18 @@ local function fetchWithRetries(player: Player): (any, string)
 		end)
 		if ok then
 			if result == nil then
-				return nil, "NOT_FOUND"
+				return nil, Persist.LoadStatus.NOT_FOUND
 			end
-			return result, "OK"
+			return result, Persist.LoadStatus.OK
 		end
 		state.logger:warn("Load attempt %d failed for %s: %s", attempt, player.Name, tostring(result))
-		local backoff = GameConfig.Save.RetryBackoffSeconds[attempt] or 3
-		task.wait(backoff)
+		local backoff =
+			Persist.retryBackoff(attempt, GameConfig.Save.MaxLoadRetries, GameConfig.Save.RetryBackoffSeconds)
+		if backoff then
+			task.wait(backoff)
+		end
 	end
-	return nil, "UNAVAILABLE"
+	return nil, Persist.LoadStatus.UNAVAILABLE
 end
 
 local function newEphemeralProfile(now: number, sessionId: string)
@@ -102,40 +106,45 @@ local function loadProfile(player: Player)
 	}
 	state.profiles[player] = handle
 
-	if state.store == nil then
-		enterEphemeral(player, handle, "DataStore service unavailable")
-	else
-		local data, status = fetchWithRetries(player)
-		if status == "OK" then
-			local migrated, didMigrate, migrateError = Schema.migrate(data, now)
-			if migrated == nil then
-				-- Corrupt or future-schema record: do not overwrite it.
-				state.logger:error("Refusing to overwrite profile for %s: %s", player.Name, tostring(migrateError))
-				if RunService:IsStudio() then
-					enterEphemeral(player, handle, "Unreadable profile in Studio: " .. tostring(migrateError))
-				else
-					player:Kick("Your saved data could not be read safely. Please rejoin in a moment.")
-					state.profiles[player] = nil
-					return
-				end
-			else
-				handle.data = Schema.normalize(migrated, now)
-				handle.dirty = didMigrate == true
-			end
-		elseif status == "NOT_FOUND" then
-			handle.data = Schema.createDefault(now, handle.sessionId, GameConfig.Economy.StartingGold)
-			handle.dirty = true
+	local storeAvailable = state.store ~= nil
+	local status = Persist.LoadStatus.NOT_FOUND
+	local raw = nil
+	if storeAvailable then
+		raw, status = fetchWithRetries(player)
+	end
+
+	local migrated, didMigrate, migrateError = nil, false, nil
+	if storeAvailable and status == Persist.LoadStatus.OK then
+		migrated, didMigrate, migrateError = Schema.migrate(raw, now)
+	end
+
+	local isStudio = RunService:IsStudio()
+	local outcome = Persist.loadOutcome(storeAvailable, status, migrated, isStudio)
+
+	if outcome == "KICK" then
+		if status == Persist.LoadStatus.OK then
+			state.logger:error("Refusing to overwrite profile for %s: %s", player.Name, tostring(migrateError))
+			player:Kick("Your saved data could not be read safely. Please rejoin in a moment.")
 		else
-			-- UNAVAILABLE: transient failure after retries.
-			if RunService:IsStudio() then
-				enterEphemeral(player, handle, "Load failed after retries (Studio)")
-			else
-				state.logger:error("Kicking %s: could not load persistent data", player.Name)
-				player:Kick("Unable to load your data right now. Please rejoin in a moment.")
-				state.profiles[player] = nil
-				return
-			end
+			state.logger:error("Kicking %s: could not load persistent data", player.Name)
+			player:Kick("Unable to load your data right now. Please rejoin in a moment.")
 		end
+		state.profiles[player] = nil
+		return
+	end
+
+	if outcome == "EPHEMERAL" then
+		local reason = if not storeAvailable
+			then "DataStore service unavailable"
+			elseif status == Persist.LoadStatus.OK then ("Unreadable profile in Studio: " .. tostring(migrateError))
+			else "Load failed after retries (Studio)"
+		enterEphemeral(player, handle, reason)
+	elseif outcome == "NEW" then
+		handle.data = Schema.createDefault(now, handle.sessionId, GameConfig.Economy.StartingGold)
+		handle.dirty = true
+	else -- LIVE
+		handle.data = Schema.normalize(migrated, now)
+		handle.dirty = didMigrate == true
 	end
 
 	if not player:IsDescendantOf(Players) then
@@ -161,12 +170,8 @@ local function attemptSave(player: Player, handle): (string, string?)
 
 	local ok, err = pcall(function()
 		state.store:UpdateAsync(key, function(current)
-			if type(current) == "table" then
-				local remoteSession = current.sessionId
-				local remoteUpdated = tonumber(current.updatedAt) or 0
-				if remoteSession ~= handle.sessionId and remoteUpdated > handle.loadedAt then
-					return nil
-				end
+			if not Persist.canCommit(current, handle.sessionId, handle.loadedAt) then
+				return nil
 			end
 			committed = true
 			return snapshot
@@ -209,7 +214,11 @@ function PlayerDataService:SaveAsync(player: Player, force: boolean): boolean
 			break
 		else
 			state.logger:warn("Save attempt %d failed for %s: %s", attempt, player.Name, tostring(err))
-			task.wait(GameConfig.Save.RetryBackoffSeconds[attempt] or 2)
+			local backoff =
+				Persist.retryBackoff(attempt, GameConfig.Save.MaxSaveRetries, GameConfig.Save.RetryBackoffSeconds)
+			if backoff then
+				task.wait(backoff)
+			end
 		end
 	end
 	handle.saving = false

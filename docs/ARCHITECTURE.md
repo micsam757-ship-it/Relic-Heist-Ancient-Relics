@@ -27,7 +27,7 @@ snapshot. It never computes rewards, prices, damage, or ownership.
 
 2. **Shared / Domain** (`src/shared/Domain/*`) - pure functions with no Roblox
    APIs. These are the single source of truth for rules:
-   - `Economy` - upgrade cost, income rate, pending income, extraction bonus.
+   - `Economy` - upgrade cost, income rate, offline income, extraction bonus.
    - `Encumbrance` - carry capacity, walk-speed multiplier, capacity checks.
    - `Inventory` - owned-relic and pedestal-assignment transitions.
    - `Progression` - temple unlock rules.
@@ -39,7 +39,8 @@ snapshot. It never computes rewards, prices, damage, or ownership.
 
 4. **Server / Services** - one responsibility each. Services receive a shared
    `ctx` (`{ Config, Services, World, Signals, Logger }`) and expose `Init(ctx)`
-   and `Start()`.
+   and `Start()`. `MonetizationService` owns the Welcome Back offline claim and
+   the VIP Pass (see `docs/MONETIZATION.md`).
 
 5. **Server / World** - builds the hub, temples, and museum plots at runtime
    from `GameConfig` and returns typed handles (portals, traps, pedestals).
@@ -59,8 +60,11 @@ snapshot. It never computes rewards, prices, damage, or ownership.
 3. Signal wiring: `ProfileLoaded/ProfileChanged/PlotAssigned/PlotReleased` push
    fresh state; hub kiosk prompts push `OpenPanel` events.
 4. `Start()` in dependency order:
-   `Network, Analytics, Economy, Upgrade, Progression, Settings, Plot, Museum,
-   Relic, Hazard, Extraction, Expedition, Admin`.
+   `Network, Analytics, Monetization, Economy, Upgrade, Progression, Settings,
+   Tutorial, Plot, Museum, Relic, Hazard, Guardian, Extraction, Expedition, Admin`.
+   Monetization starts before Economy so the cached VIP entitlement is known when
+   the offline cap is computed; Guardian starts after Hazard because it routes
+   contact damage through `HazardService:DamagePlayer`.
 5. `PlayerDataService:Start()` last, so every `ProfileLoaded` listener exists
    before any player profile finishes loading.
 

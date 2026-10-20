@@ -10,6 +10,7 @@ local Encumbrance = require(ReplicatedStorage.Shared.Domain.Encumbrance)
 local Economy = require(ReplicatedStorage.Shared.Domain.Economy)
 local Inventory = require(ReplicatedStorage.Shared.Domain.Inventory)
 local Progression = require(ReplicatedStorage.Shared.Domain.Progression)
+local Tutorial = require(ReplicatedStorage.Shared.Domain.Tutorial)
 
 local ViewService = {}
 
@@ -62,18 +63,11 @@ function ViewService:Build(player: Player)
 	)
 
 	local exhibitedIncome, exhibitedCount = countExhibited(profile)
-	local incomeRate = Economy.incomeRatePerMinute(
+	local incomeRate = Economy.incomeRatePerSecond(
 		exhibitedIncome,
 		floorLevel,
 		GameConfig.Museum.IncomePerMinuteFloorBonus,
 		GameConfig.Museum.MaxIncomeRatePerMinute
-	)
-	local pendingIncome = Economy.pendingIncome(
-		incomeRate,
-		profile.lastIncomeClaimAt,
-		now,
-		GameConfig.Economy.OfflineCapSeconds,
-		GameConfig.Economy.MaxPendingIncome
 	)
 
 	local relics = {}
@@ -87,7 +81,7 @@ function ViewService:Build(player: Player)
 				rarity = definition.rarity,
 				weight = definition.weight,
 				value = definition.value,
-				incomePerMinute = definition.incomePerMinute,
+				incomePerSecond = definition.incomePerMinute / 60,
 				acquiredAt = owned.acquiredAt,
 				exhibited = Inventory.isExhibited(profile, uid),
 			})
@@ -181,9 +175,7 @@ function ViewService:Build(player: Player)
 	return {
 		serverNow = now,
 		gold = profile.gold,
-		incomePerMinute = incomeRate,
-		pendingIncome = pendingIncome,
-		lastIncomeClaimAt = profile.lastIncomeClaimAt,
+		incomePerSecond = incomeRate,
 		relics = relics,
 		displayed = displayed,
 		pedestals = pedestals,
@@ -203,10 +195,19 @@ function ViewService:Build(player: Player)
 		stats = profile.stats,
 		settings = profile.settings,
 		tutorialComplete = profile.tutorialComplete,
+		tutorial = Tutorial.view(profile.tutorialStep or 0, (GameConfig.Tutorial and GameConfig.Tutorial.Steps) or {}),
 		plotIndex = plot and plot.index or nil,
 		ephemeral = ephemeral,
 		maxCarried = GameConfig.Economy.MaxCarriedRelics,
 		offlineCapSeconds = GameConfig.Economy.OfflineCapSeconds,
+		vip = profile.vip == true,
+		pendingOfflineGold = math.max(0, math.floor(profile.pendingOfflineGold or 0)),
+		offlineDouble = {
+			multiplier = GameConfig.Monetization.OfflineDoubleMultiplier,
+			priceRobux = GameConfig.Monetization.OfflineDoublePriceRobux,
+			purchasable = type(GameConfig.Monetization.OfflineDoubleProductId) == "number"
+				and GameConfig.Monetization.OfflineDoubleProductId > 0,
+		},
 	}
 end
 

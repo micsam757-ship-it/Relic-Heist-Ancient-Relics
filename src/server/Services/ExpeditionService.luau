@@ -5,6 +5,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
+local Contracts = require(ReplicatedStorage.Shared.Net.Contracts)
 local Encumbrance = require(ReplicatedStorage.Shared.Domain.Encumbrance)
 local Progression = require(ReplicatedStorage.Shared.Domain.Progression)
 local PlayerUtil = require(script.Parent.Parent.Utilities.PlayerUtil)
@@ -160,6 +161,9 @@ function ExpeditionService:RequestEnter(player: Player, templeId: string, source
 	ExpeditionService:RecalculateMovement(player)
 
 	state.ctx.Services.Analytics:Track("expedition_entered", { temple = templeId })
+	if state.ctx.Services.Tutorial then
+		state.ctx.Services.Tutorial:Advance(player, "enteredTemple")
+	end
 	state.ctx.Services.Network:PushEvent(player, "ExpeditionStarted", {
 		templeId = templeId,
 		templeName = temple.name,
@@ -259,14 +263,15 @@ function ExpeditionService:Start()
 	end
 
 	services.Network:RegisterAction("EnterExpedition", function(player, data)
-		if type(data) ~= "table" or type(data.templeId) ~= "string" then
+		local valid = Contracts.check("EnterExpedition", data)
+		if not valid then
 			return false, "Invalid request."
 		end
-		local ok, reason = ExpeditionService:RequestEnter(player, data.templeId, "remote", nil)
+		local ok, enterReason = ExpeditionService:RequestEnter(player, data.templeId, "remote", nil)
 		if ok then
 			return true
 		end
-		return false, reason
+		return false, enterReason
 	end, { perSecond = 1, burst = 3 })
 
 	services.Network:RegisterAction("AbandonExpedition", function(player, _data)

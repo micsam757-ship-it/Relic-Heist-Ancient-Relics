@@ -24,8 +24,13 @@ GameConfig.Save = {
 
 GameConfig.Economy = {
 	StartingGold = 250,
-	OfflineCapSeconds = 8 * 60 * 60,
+	-- Offline income is held as pending and claimed through the Welcome Back
+	-- modal, so the cap is measured against the offline window only.
+	OfflineCapSeconds = 4 * 60 * 60,
 	MaxPendingIncome = 50000,
+	-- VIP Pass (a Game Pass) raises both the window and the ceiling.
+	VipOfflineCapSeconds = 24 * 60 * 60,
+	VipMaxPendingIncome = 200000,
 	MaxCarriedRelics = 10,
 	ExtractionValueToGold = 0.25,
 }
@@ -292,10 +297,12 @@ GameConfig.Temples = {
 				startOffset = { x = 0, y = 6, z = 140 },
 				endOffset = { x = 0, y = 6, z = 30 },
 				radius = 7,
-				interval = 10,
-				warning = 2,
+				interval = 10.5,
+				warning = 2.4,
 				travel = 3.5,
-				damage = 35,
+				-- Tutorial temple: teaches the dodge rather than punishing a
+				-- first-timer. Lower damage and a longer tell than later temples.
+				damage = 26,
 			},
 		},
 	},
@@ -358,6 +365,18 @@ GameConfig.Temples = {
 				warning = 2.2,
 				travel = 4,
 				damage = 45,
+			},
+		},
+		guardians = {
+			{
+				kind = "Guardian",
+				label = "Stone Guardian",
+				waypoints = {
+					{ x = -14, y = 3, z = 60 },
+					{ x = -14, y = 3, z = 132 },
+					{ x = 14, y = 3, z = 132 },
+					{ x = 14, y = 3, z = 60 },
+				},
 			},
 		},
 	},
@@ -428,6 +447,35 @@ GameConfig.Temples = {
 				damage = 50,
 			},
 		},
+		guardians = {
+			{
+				kind = "Guardian",
+				label = "Drowned Warden",
+				walkSpeed = 13,
+				damage = 24,
+				waypoints = {
+					{ x = -16, y = 3, z = 70 },
+					{ x = -16, y = 3, z = 170 },
+					{ x = 16, y = 3, z = 170 },
+					{ x = 16, y = 3, z = 70 },
+				},
+			},
+			{
+				kind = "Guardian",
+				label = "Deep Sentinel",
+				walkSpeed = 15,
+				damage = 26,
+				aggroRange = 52,
+				bodyColor = { 62, 98, 106 },
+				eyeColor = { 96, 226, 232 },
+				waypoints = {
+					{ x = 0, y = 3, z = 120 },
+					{ x = -20, y = 3, z = 200 },
+					{ x = 20, y = 3, z = 200 },
+					{ x = 0, y = 3, z = 120 },
+				},
+			},
+		},
 	},
 }
 
@@ -435,6 +483,45 @@ GameConfig.Hazards = {
 	CollapseDamage = 18,
 	CollapseTickSeconds = 1.25,
 	DamageInvulnerabilitySeconds = 0.35,
+}
+
+-- Guardian enemies (see docs/ADR/0008-guardian-enemies.md). Shared tuning
+-- lives here; each temple lists its own guardians. Guardians patrol a route,
+-- chase a player they can see within `AggroRange`, and deal contact damage.
+GameConfig.Enemies = {
+	TickSeconds = 0.1,
+	-- How long an aggroed guardian keeps pursuing after losing sight.
+	AggroLingerSeconds = 2.5,
+	-- Extra distance beyond `AggroRange` before a chase is dropped.
+	DeaggroPadding = 6,
+	-- A guardian pauses this long after landing a hit before it can hit again.
+	ContactCooldownSeconds = 1.1,
+	-- Movement speed while patrolling vs. chasing, as a multiplier of the
+	-- guardian's configured walk speed.
+	Patrol = {
+		WaypointTolerance = 4,
+		RepathSeconds = 0.35,
+	},
+	Chase = {
+		RepathSeconds = 0.2,
+	},
+	-- Visual telegraph flashed to nearby players when a guardian first aggros.
+	WarnColor = { 255, 96, 80 },
+}
+
+-- Damage, speed and reward tuning are data; the domain never hardcodes them.
+GameConfig.Enemies.Kinds = {
+	Guardian = {
+		name = "Stone Guardian",
+		health = 1000,
+		walkSpeed = 12,
+		damage = 22,
+		aggroRange = 46,
+		contactRange = 7,
+		attackWindup = 0.45,
+		bodyColor = { 96, 88, 76 },
+		eyeColor = { 255, 96, 80 },
+	},
 }
 
 GameConfig.RateLimits = {
@@ -447,6 +534,90 @@ GameConfig.RateLimits = {
 
 GameConfig.Networking = {
 	RequestStateCooldownSeconds = 1,
+}
+
+-- Monetization (see docs/ADR/0007-monetization.md and docs/MONETIZATION.md).
+-- IDs of 0 mean "not configured"; services must refuse to prompt or grant when
+-- an ID is unset, so the game stays playable before the products exist.
+GameConfig.Monetization = {
+	OfflineDoubleProductId = 0,
+	OfflineDoublePriceRobux = 199,
+	OfflineDoubleMultiplier = 2,
+	VipPassId = 0,
+	VipName = "VIP Pass",
+}
+
+-- Accessibility and feedback settings (see docs/HCI_DESIGN.md). `defaults` seeds
+-- new profiles; `TextScaleOptions` bounds the allowed text-size values.
+GameConfig.Settings = {
+	Defaults = {
+		soundEnabled = true,
+		visualEffects = true,
+		reducedMotion = false,
+		colorblindMode = false,
+		textScale = "Normal",
+	},
+	TextScaleOptions = { "Normal", "Large", "Huge" },
+	TextScaleMultipliers = { Normal = 1, Large = 1.25, Huge = 1.5 },
+}
+
+-- Audio feedback (see docs/HCI_DESIGN.md and docs/ASSETS.md). Asset ids default
+-- to 0 ("not configured") so the game is silent but playable before sounds are
+-- authored. A non-zero id plays through a pooled Sound; `SoundEnabled` settings
+-- gate playback. This mirrors the procedural-blockout asset plan.
+GameConfig.Audio = {
+	Enabled = true,
+	MasterVolume = 0.6,
+	Sounds = {
+		UiClick = { assetId = 0, volume = 0.5 },
+		UiOpen = { assetId = 0, volume = 0.5 },
+		UiClose = { assetId = 0, volume = 0.4 },
+		RelicCollect = { assetId = 0, volume = 0.7 },
+		Damage = { assetId = 0, volume = 0.8 },
+		ExtractionSuccess = { assetId = 0, volume = 0.8 },
+		ExtractionFail = { assetId = 0, volume = 0.7 },
+		Warning = { assetId = 0, volume = 0.6 },
+		TutorialAdvance = { assetId = 0, volume = 0.6 },
+		TutorialComplete = { assetId = 0, volume = 0.8 },
+	},
+}
+
+-- Data-driven onboarding (see docs/ADR/0009-tutorial-and-ux.md). Steps advance
+-- in order as the player performs the action each step teaches. `hint` is shown
+-- as a persistent objective; `complete` is a snapshot field the server sets.
+-- The server only counts steps the player actually reaches, so this is a guide,
+-- never a gate. An empty list disables the tutorial entirely.
+GameConfig.Tutorial = {
+	Steps = {
+		{
+			id = "welcome",
+			title = "First Heist",
+			text = "Steal relics from the Tutorial Ruins, then carry them to the extraction altar before the ground shakes. Only extracted relics are yours to keep.",
+			hint = "Enter the Tutorial Ruins portal.",
+			complete = "enteredTemple",
+		},
+		{
+			id = "collect",
+			title = "Grab the loot",
+			text = "Walk up to a glowing relic and take it. Heavier loads slow you down, so watch the weight bar.",
+			hint = "Collect a relic.",
+			complete = "collectedRelic",
+		},
+		{
+			id = "extract",
+			title = "Escape with the goods",
+			text = "Return to the extraction altar at the temple entrance and deposit your relics to bank them.",
+			hint = "Extract at the altar.",
+			complete = "extracted",
+		},
+		{
+			id = "display",
+			title = "Put it on display",
+			text = "Exhibit an owned relic on a museum pedestal to earn passive income while you are away.",
+			hint = "Exhibit a relic at your museum.",
+			complete = "exhibited",
+		},
+	},
 }
 
 return GameConfig

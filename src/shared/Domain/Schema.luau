@@ -3,7 +3,7 @@
 
 local Schema = {}
 
-Schema.CURRENT_VERSION = 1
+Schema.CURRENT_VERSION = 3
 
 export type Profile = {
 	schemaVersion: number,
@@ -17,7 +17,12 @@ export type Profile = {
 	upgrades: { [string]: number },
 	unlockedTemples: { [string]: boolean },
 	lastIncomeClaimAt: number,
-	settings: { [string]: boolean },
+	-- Offline income held until the player resolves the Welcome Back modal.
+	pendingOfflineGold: number,
+	-- Cached entitlement; refreshed from MarketplaceService on join.
+	vip: boolean,
+	tutorialStep: number,
+	settings: { [string]: any },
 }
 
 local function safeNumber(value: any, fallback: number): number
@@ -60,12 +65,50 @@ function Schema.createDefault(now: number, sessionId: string, startingGold: numb
 		},
 		unlockedTemples = { TutorialRuins = true },
 		lastIncomeClaimAt = now,
-		settings = { soundEnabled = true, visualEffects = true },
+		pendingOfflineGold = 0,
+		vip = false,
+		tutorialStep = 0,
+		settings = {
+			soundEnabled = true,
+			visualEffects = true,
+			reducedMotion = false,
+			colorblindMode = false,
+			textScale = "Normal",
+		},
 	}
 end
 
 -- Forward-only migrations. Each entry upgrades a profile from version N to N+1.
 local migrations: { [number]: (profile: any, now: number) -> any } = {}
+
+migrations[1] = function(profile, _now)
+	profile.pendingOfflineGold = 0
+	profile.vip = false
+	return profile
+end
+
+migrations[2] = function(profile, _now)
+	-- v3 adds accessibility settings and tutorial progress. Preserve any settings
+	-- the player already has; only fill the new keys.
+	local settings: any = profile.settings
+	if type(settings) ~= "table" then
+		settings = {}
+		profile.settings = settings
+	end
+	if settings.reducedMotion == nil then
+		settings.reducedMotion = false
+	end
+	if settings.colorblindMode == nil then
+		settings.colorblindMode = false
+	end
+	if settings.textScale == nil then
+		settings.textScale = "Normal"
+	end
+	if profile.tutorialStep == nil then
+		profile.tutorialStep = 0
+	end
+	return profile
+end
 
 function Schema.migrate(rawProfile: any, now: number): (Profile?, boolean?, string?)
 	if type(rawProfile) ~= "table" then
@@ -113,6 +156,9 @@ function Schema.normalize(profile: Profile, now: number): Profile
 	profile.gold = math.max(0, math.floor(safeNumber(profile.gold, 0)))
 	profile.tutorialComplete = safeBoolean(profile.tutorialComplete, false)
 	profile.lastIncomeClaimAt = math.min(now, safeNumber(profile.lastIncomeClaimAt, now))
+	profile.pendingOfflineGold = math.max(0, math.floor(safeNumber(profile.pendingOfflineGold, 0)))
+	profile.vip = safeBoolean(profile.vip, false)
+	profile.tutorialStep = math.max(0, math.floor(safeNumber(profile.tutorialStep, 0)))
 	profile.schemaVersion = Schema.CURRENT_VERSION
 
 	local stats = safeTable(profile.stats)
@@ -163,9 +209,16 @@ function Schema.normalize(profile: Profile, now: number): Profile
 	profile.unlockedTemples = temples
 
 	local settings = safeTable(profile.settings)
+	local textScale = settings.textScale
+	if textScale ~= "Normal" and textScale ~= "Large" and textScale ~= "Huge" then
+		textScale = "Normal"
+	end
 	profile.settings = {
 		soundEnabled = safeBoolean(settings.soundEnabled, true),
 		visualEffects = safeBoolean(settings.visualEffects, true),
+		reducedMotion = safeBoolean(settings.reducedMotion, false),
+		colorblindMode = safeBoolean(settings.colorblindMode, false),
+		textScale = textScale,
 	}
 
 	return profile

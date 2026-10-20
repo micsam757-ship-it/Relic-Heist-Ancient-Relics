@@ -1,6 +1,6 @@
 # ADR 0003: On-demand passive income from a timestamp
 
-- Status: Accepted
+- Status: Superseded by [ADR 0006](0006-auto-tick-income.md)
 - Date: 2026-10-19
 
 ## Context

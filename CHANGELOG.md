@@ -3,6 +3,138 @@
 All notable changes are recorded here. This project follows a simple
 major.minor.patch scheme while pre-1.0.
 
+## [Unreleased] - M6 hardening (in progress)
+
+### Added
+
+- Pure `Validate` module (`src/shared/Utilities/Validate.luau`) for request-payload
+  shape checks, now used by `NetworkService` and unit tested (T-03).
+- Pure `Persist.canCommit` module (`src/shared/Utilities/Persist.luau`) for the
+  save conflict-guard decision, now used by `PlayerDataService` and unit tested
+  (T-11).
+- Exploit-resistance regression tests (request validation, token-bucket rate
+  limiting, save conflict guard) — 52 assertions total.
+- Persistence failure-mode classification in the pure `Persist` module
+  (`loadOutcome`, `isWritable`, `retryBackoff`), used by `PlayerDataService` and
+  unit tested. Documented as a failure-mode matrix in `docs/DATA_MODEL.md`
+  (T-11/T-12) — 60 assertions total.
+- Pure `Contracts` module (`src/shared/Net/Contracts.luau`) declaring each request
+  action and its required `data` shape. Handlers now validate through
+  `Contracts.check`, and a drift test asserts the registry matches
+  `docs/API_CONTRACTS.md` — 66 assertions total.
+- `tests/bench.luau` micro-benchmark for the hot pure functions (income tick,
+  encumbrance, guardian distance, request admission) with a documented baseline
+  and budget in `docs/PERFORMANCE.md`; run as a report step by `scripts/check.ps1`.
+- `docs/STUDIO_TEST_PLAN.md` — step-by-step Studio playtest sessions covering the
+  currently unverified runtime paths, with prerequisites and a results log.
+
+### Changed
+
+- `NetworkService` and `PlayerDataService` delegate their security-critical
+  predicates to the pure modules above, so the same rules are exercised by tests
+  and production. `PlayerDataService`'s load path now routes every failure through
+  `Persist.loadOutcome`.
+- `docs/THREAT_MODEL.md` and the traceability matrix note the tested mitigations.
+
+## [0.6.0] - 2026-10-20
+
+### Added
+
+- Data-driven tutorial (M5): an ordered step sequencer in
+  `GameConfig.Tutorial.Steps`, pure rules in `src/shared/Domain/Tutorial.luau`,
+  and a new `TutorialService` that records progress (`tutorialStep`) and pushes
+  `TutorialStep` / `TutorialComplete` events. Teachable actions are reported by
+  `ExpeditionService`, `RelicService`, `ExtractionService`, and `MuseumService`.
+  The tutorial guides but never gates play. See `docs/ADR/0009-tutorial-and-ux.md`
+  and SRS FR-015.
+- Accessibility settings (M5): `reducedMotion`, `colorblindMode`, and `textScale`
+  (`Normal`/`Large`/`Huge`) alongside the existing sound/visual-effects toggles.
+  Server-validated in `SettingsService`, applied client-side through a single
+  `Preferences` applier and a base/colorblind `Theme`. See SRS FR-022.
+- Cross-platform polish (M5): a viewport-anchored `UIScale` for a responsive HUD,
+  device-aware touch nav sizing, and gamepad face-button panel shortcuts with
+  `ContextActionService` close bindings. See SRS FR-020/FR-021.
+- Audio feedback scaffolding (M5): `GameConfig.Audio` cue set and a pooled
+  `SoundController`. Asset ids default to `0`, so the game is silent but fully
+  playable until sounds are authored. See SRS FR-023.
+- Schema v3 with a `migrations[2]` step (settings + `tutorialStep`), preserving
+  existing player values.
+- M5 config-integrity and domain tests (43 assertions total): tutorial rules,
+  schema v3 migration/normalize, settings coherence, and audio config.
+
+### Changed
+
+- `docs/VISION.md`, `docs/SRS.md`, `docs/HCI_DESIGN.md`, `docs/DATA_MODEL.md`,
+  `docs/ASSETS.md`, and the traceability matrix updated for the tutorial,
+  accessibility, cross-platform input, and audio scaffolding.
+
+### Fixed
+
+- Removed a dead `lastTextScale` local in `UIRoot` flagged by Selene.
+
+## [0.5.0] - 2026-10-20
+
+### Added
+
+- Guardian enemies (M4): data-driven per temple in `GameConfig.Temples[*].guardians`,
+  built by `TempleBuilder.buildGuardian` and run by `GuardianService`. Guardians
+  patrol a waypoint route, chase a visible player in aggro range, and deal
+  server-authoritative contact damage after a dodgeable windup, sharing
+  `HazardService:DamagePlayer`. See `docs/ADR/0008-guardian-enemies.md` and SRS
+  FR-007b.
+- Catacombs get a Stone Guardian; the Sanctum gets a Drowned Warden and a faster
+  Deep Sentinel.
+- Config-integrity tests for guardian kinds, patrol routes, and default tuning
+  (31 assertions total).
+
+### Changed
+
+- VISION's "no enemies" non-goal is superseded; enemies are now positional
+  server-authoritative threats, not a combat system.
+- Economy balance pass: the Tutorial boulder is softened (35 → 26 damage, longer
+  tell) so the first temple teaches the dodge.
+- Progression feedback: locked-temple rows now show `current/required`
+  extractions with the remaining count.
+
+## [0.4.0] - 2026-10-20
+
+### Added
+
+- Welcome Back modal: on join, offline museum earnings are held as
+  `pendingOfflineGold` and offered as a free **Claim 1x** or a **Claim 2x** that
+  doubles that one payout via a 199-Robux Developer Product.
+- `MonetizationService`: server-authoritative `ProcessReceipt` handling, VIP Pass
+  (`UserOwnsGamePassAsync`, cached on join), and the `ClaimOfflineIncome` /
+  `PurchaseOfflineDouble` actions.
+- VIP Pass extends the offline window to 24h and raises the pending ceiling to
+  `200000` (`GameConfig.Economy.VipOfflineCapSeconds` / `VipMaxPendingIncome`).
+- New remotes `WelcomeBack` / `WelcomeBackClosed`; new snapshot fields `vip`,
+  `pendingOfflineGold`, and `offlineDouble`.
+- `docs/MONETIZATION.md` (policy) and `docs/ADR/0007-monetization.md`; FR-019.
+
+### Changed
+
+- Offline income is no longer auto-granted on join; it is held for the modal.
+  Supersedes the offline-grant portion of ADR 0006.
+- Standard offline window changed from 8h to 4h; `Schema` bumped to v2 with a
+  migration seeding `pendingOfflineGold` and `vip`.
+- Monetization brought into scope; VISION/SRS moved it out of the non-goals.
+
+## [0.3.0] - 2026-10-20
+
+### Changed
+
+- Museum income is now deposited automatically into the gold balance on a
+  one-second server tick; the `ClaimIncome` action, top-bar claim button, and
+  `C` shortcut were removed. Offline income still accrues from
+  `lastIncomeClaimAt` and is granted on join. Supersedes ADR 0003 with
+  `docs/ADR/0006-auto-tick-income.md`.
+- The top-bar gold interpolates client-side between authoritative snapshots so
+  it climbs smoothly in real time; downward corrections (purchases) snap, and all
+  amounts remain server-decided.
+- The snapshot no longer sends `pendingIncome`/`lastIncomeClaimAt`; it sends
+  `gold` and `incomePerSecond`.
+
 ## [0.2.0] - 2026-10-20
 
 ### Added

@@ -9,7 +9,7 @@ export type RelicDefinition = {
 	rarity: Rarity,
 	weight: number,
 	value: number,
-	incomePerMinute: number,
+	incomePerSecond: number,
 	templeIds: { string },
 	visual: {
 		kind: string,
@@ -39,9 +39,14 @@ export type PlayerStats = {
 	incomeClaimed: number,
 }
 
+export type TextScale = "Normal" | "Large" | "Huge"
+
 export type PlayerSettings = {
 	soundEnabled: boolean,
 	visualEffects: boolean,
+	reducedMotion: boolean,
+	colorblindMode: boolean,
+	textScale: TextScale,
 }
 
 export type PlayerProfile = {
@@ -56,6 +61,8 @@ export type PlayerProfile = {
 	upgrades: UpgradeLevels,
 	unlockedTemples: { [string]: boolean },
 	lastIncomeClaimAt: number,
+	pendingOfflineGold: number,
+	vip: boolean,
 	settings: PlayerSettings,
 }
 

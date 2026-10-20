@@ -77,6 +77,7 @@ try {
     Invoke-Check "stylua --check ." { & $stylua --check . }
     Invoke-Check "selene src tests" { & $selene src tests }
     Invoke-Check "luau tests/run_tests.luau" { & $luau tests/run_tests.luau }
+    Invoke-Check "luau tests/bench.luau (report)" { & $luau tests/bench.luau }
     Invoke-Check "luau-analyze src/shared" { & $luauAnalyze src/shared/Domain src/shared/Config }
 } finally {
     Pop-Location

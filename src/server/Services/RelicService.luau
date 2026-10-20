@@ -159,6 +159,9 @@ function RelicService:TryCollect(player: Player, entry)
 
 	expedition:AddCarried(player, entry.definitionId, entry.uid)
 	state.ctx.Services.Analytics:Track("relic_collected", { relic = entry.definitionId })
+	if state.ctx.Services.Tutorial then
+		state.ctx.Services.Tutorial:Advance(player, "collectedRelic")
+	end
 	state.ctx.Services.Network:Toast(player, "success", string.format("Collected %s.", definition.name))
 	state.ctx.Services.Network:PushEvent(player, "RelicCollected", {
 		definitionId = entry.definitionId,

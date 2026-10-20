@@ -38,8 +38,10 @@ expedition sessions that can be chained in a 15-30 minute play sitting.
 ## Non-goals (for the current slice)
 
 - No player-versus-player stealing of other players' relics.
-- No combat/enemies beyond environmental hazards.
-- No trading, premium currency, or monetization.
+- No full combat system. Guardians are positional, server-authoritative enemies
+  (patrol + chase + contact damage), not a combat loop (see ADR 0008).
+- No trading or a premium in-game currency. Monetization is limited to the
+  documented Welcome Back offer and VIP Pass (see `docs/MONETIZATION.md`).
 - No procedurally infinite temples; temples are authored config.
 
 ## Success signals (post-slice)

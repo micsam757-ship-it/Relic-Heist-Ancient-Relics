@@ -113,8 +113,11 @@ function Panels.Expeditions(body)
 				})
 			else
 				local requirements = {}
+				local extractions = (snapshot.stats and snapshot.stats.extractions) or 0
 				if not temple.requirementsMet then
-					requirements[#requirements + 1] = string.format("%d more extraction(s)", temple.minExtractions)
+					local remaining = math.max(1, (temple.minExtractions or 0) - extractions)
+					requirements[#requirements + 1] =
+						string.format("%d/%d extractions (%d to go)", extractions, temple.minExtractions, remaining)
 				end
 				if snapshot.gold < temple.unlockPrice then
 					requirements[#requirements + 1] =
@@ -126,8 +129,8 @@ function Panels.Expeditions(body)
 					TextSize = 13,
 					TextColor = Theme.Color.Danger,
 					AlignX = Enum.TextXAlignment.Right,
-					Size = UDim2.fromOffset(150, 60),
-					Position = UDim2.new(1, -162, 0, 16),
+					Size = UDim2.fromOffset(170, 60),
+					Position = UDim2.new(1, -182, 0, 16),
 					AlignY = Enum.TextYAlignment.Center,
 				})
 			end
@@ -236,10 +239,10 @@ function Panels.Inventory(body, helpers)
 			})
 			Components.label(row, {
 				Text = string.format(
-					"Wt %d  •  %d g  •  +%d/min",
+					"Wt %d  •  %d g  •  +%s/sec",
 					relic.weight,
 					relic.value,
-					relic.incomePerMinute
+					Util.formatNumber(relic.incomePerSecond * 10 / 10)
 				),
 				TextSize = 13,
 				TextColor = Theme.Color.TextMuted,
@@ -377,11 +380,59 @@ function Panels.Settings(body)
 			})
 		end
 
+		local function options(label: string, current: string, choices: { string }, apply)
+			local row = Components.panel(scroll, {
+				Size = UDim2.new(1, 0, 0, 46),
+				Color = Theme.Color.PanelAlt,
+				ClipsDescendants = true,
+			})
+			Components.label(row, {
+				Text = label,
+				TextSize = Theme.TextSize.Body,
+				Size = UDim2.new(1, -140, 1, 0),
+				Position = UDim2.fromOffset(12, 0),
+			})
+			Components.button(row, {
+				Text = current,
+				Size = UDim2.fromOffset(110, 34),
+				Position = UDim2.new(1, -122, 0, 6),
+				Color = Theme.Color.PanelRaised,
+				OnClick = function()
+					local index = table.find(choices, current) or 1
+					apply(choices[index % #choices + 1])
+				end,
+			})
+		end
+
+		Components.label(scroll, {
+			Text = "Feedback",
+			Font = Theme.Font.Heading,
+			TextSize = Theme.TextSize.Body,
+			TextColor = Theme.Color.Gold,
+			Size = UDim2.new(1, 0, 0, 30),
+		})
 		toggle("Sound", settings.soundEnabled ~= false, function(next)
 			Net.send("UpdateSettings", { soundEnabled = next })
 		end)
 		toggle("Visual effects", settings.visualEffects ~= false, function(next)
 			Net.send("UpdateSettings", { visualEffects = next })
+		end)
+		toggle("Reduced motion", settings.reducedMotion == true, function(next)
+			Net.send("UpdateSettings", { reducedMotion = next })
+		end)
+
+		Components.label(scroll, {
+			Text = "Accessibility",
+			Font = Theme.Font.Heading,
+			TextSize = Theme.TextSize.Body,
+			TextColor = Theme.Color.Gold,
+			Size = UDim2.new(1, 0, 0, 30),
+		})
+		options("Text size", settings.textScale or "Normal", { "Normal", "Large", "Huge" }, function(next)
+			Net.send("UpdateSettings", { textScale = next })
+		end)
+		toggle("Colorblind palette", settings.colorblindMode == true, function(next)
+			Net.send("UpdateSettings", { colorblindMode = next })
 		end)
 
 		Components.label(scroll, {
@@ -394,8 +445,7 @@ function Panels.Settings(body)
 		statRow(scroll, "Extractions", tostring(snapshot.stats.extractions))
 		statRow(scroll, "Relics collected", tostring(snapshot.stats.relicsCollected))
 		statRow(scroll, "Deaths", tostring(snapshot.stats.deaths))
-		statRow(scroll, "Museum income", string.format("+%d / min", snapshot.incomePerMinute))
-		statRow(scroll, "Pending income", tostring(snapshot.pendingIncome))
+		statRow(scroll, "Museum income", string.format("+%.1f / sec", snapshot.incomePerSecond))
 		if snapshot.ephemeral then
 			Components.label(scroll, {
 				Text = "Studio preview: progress is not saved to a DataStore.",

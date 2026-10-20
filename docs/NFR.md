@@ -20,8 +20,9 @@
 - **NFR-009 Determinism of rules.** Reward, price, and damage math is pure and
   side-effect free, so identical inputs yield identical outputs.
 - **NFR-010 Performance budget.** No per-frame server work over all players; the
-  only high-frequency loop is the 0.5s expedition timer and per-frame client
-  cosmetic tweening. Income is computed on demand, not ticked.
+  server loops are the 1s income tick, the 0.5s expedition timer, and the save
+  tick, with per-frame cosmetic tweening on the client only. VIP entitlement is
+  cached on join and never checked per-tick.
 - **NFR-011 Accessibility.** All interactions are reachable by pointer/touch;
   no action is keyboard-only. Text has contrast, and labels are textual.
 - **NFR-012 Configurability.** Balance values live in one config module with no

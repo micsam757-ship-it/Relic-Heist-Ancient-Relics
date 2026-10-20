@@ -9,10 +9,11 @@ textures, sounds, animations, or external assets in this repository.
 | System | Builder | File |
 | --- | --- | --- |
 | Hub plaza, portals, kiosks | `HubBuilder` | `src/server/World/HubBuilder.luau` |
-| Temples, traps, altars | `TempleBuilder` | `src/server/World/TempleBuilder.luau` |
+| Temples, traps, altars, guardians | `TempleBuilder` | `src/server/World/TempleBuilder.luau` |
 | Museum plots, pedestals | `PlotBuilder` | `src/server/World/PlotBuilder.luau` |
 | Relic models (8 kinds) | `RelicVisuals` | `src/server/World/RelicVisuals.luau` |
 | Shared part helpers | `BuilderUtil` | `src/server/World/BuilderUtil.luau` |
+| Guardian rig blockout | `TempleBuilder.buildGuardian` | `src/server/World/TempleBuilder.luau` |
 
 Relic visual kinds: `scarab`, `ankh`, `idol`, `mask`, `urn`, `jackal`,
 `crystal`, `core`.
@@ -38,5 +39,19 @@ Blockout geometry is designed to be replaced without touching logic:
 
 ## Audio
 
-No audio is shipped. `Settings.soundEnabled` exists in the data model so audio
-can be added without a schema change.
+Audio is **data-driven and currently silent**: `GameConfig.Audio.Sounds` defines
+the cue set with `assetId = 0` ("not configured"). A pooled `SoundController`
+plays a cue only when its asset id is non-zero and the player's sound setting is
+on, so the game is fully playable before audio is authored and authoring a sound
+is a config edit (`assetId`, `volume`), not a code change.
+
+| Cue | When |
+| --- | --- |
+| `UiClick` / `UiOpen` / `UiClose` | Panel and button interaction |
+| `RelicCollect` | A relic is collected |
+| `Damage` | The player takes hazard/guardian damage |
+| `ExtractionSuccess` / `ExtractionFail` | Expedition ends via altar / death-abandon |
+| `Warning` | Hazard windup telegraph |
+| `TutorialAdvance` / `TutorialComplete` | Tutorial step advances / finishes |
+
+`GameConfig.Audio.MasterVolume` scales all cues.

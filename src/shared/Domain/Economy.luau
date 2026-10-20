@@ -40,25 +40,29 @@ function Economy.pedestalCount(
 	return math.clamp(count, 0, maximum)
 end
 
-function Economy.incomeRatePerMinute(
+-- Authoritative museum rate per second. The config expresses relic income and
+-- the cap per minute for readability; the domain works in per-second so accrual
+-- math and the HUD share one unit. Display only rounds this value.
+function Economy.incomeRatePerSecond(
 	exhibitedIncomePerMinute: number,
 	floorLevel: number,
 	floorBonusPerLevel: number,
-	cap: number
+	capPerMinute: number
 ): number
 	local bonus = 1 + math.max(0, floorLevel) * floorBonusPerLevel
-	return math.min(math.max(0, exhibitedIncomePerMinute) * bonus, cap)
+	local ratePerMinute = math.min(math.max(0, exhibitedIncomePerMinute) * bonus, capPerMinute)
+	return ratePerMinute / 60
 end
 
 function Economy.pendingIncome(
-	ratePerMinute: number,
+	ratePerSecond: number,
 	lastClaimAt: number,
 	now: number,
 	offlineCapSeconds: number,
 	maxPending: number
 ): number
 	local elapsed = math.clamp(now - lastClaimAt, 0, offlineCapSeconds)
-	local earned = math.floor((ratePerMinute / 60) * elapsed)
+	local earned = math.floor(math.max(0, ratePerSecond) * elapsed)
 	return math.clamp(earned, 0, maxPending)
 end
 

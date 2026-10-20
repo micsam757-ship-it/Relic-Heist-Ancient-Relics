@@ -6,6 +6,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
+local Validate = require(ReplicatedStorage.Shared.Utilities.Validate)
 local RateLimiter = require(script.Parent.Parent.Security.RateLimiter)
 local Logger = require(script.Parent.Parent.Utilities.Logger)
 
@@ -45,15 +46,8 @@ function NetworkService:RegisterAction(name: string, handler, options)
 	end
 end
 
-local function isValidPayload(payload): boolean
-	if type(payload) ~= "table" then
-		return false
-	end
-	return type(payload.action) == "string"
-end
-
 local function handleRequest(player: Player, payload)
-	if not isValidPayload(payload) then
+	if not Validate.isValidPayload(payload) then
 		state.logger:warn("Malformed request from %s", player.Name)
 		return
 	end

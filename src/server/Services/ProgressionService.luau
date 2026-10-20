@@ -4,6 +4,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
+local Contracts = require(ReplicatedStorage.Shared.Net.Contracts)
 local Progression = require(ReplicatedStorage.Shared.Domain.Progression)
 
 local ProgressionService = {}
@@ -27,7 +28,8 @@ end
 
 function ProgressionService:Start()
 	state.ctx.Services.Network:RegisterAction("UnlockTemple", function(player, data)
-		if type(data) ~= "table" or type(data.templeId) ~= "string" then
+		local valid = Contracts.check("UnlockTemple", data)
+		if not valid then
 			return false, "Invalid unlock request."
 		end
 		local profile = state.ctx.Services.PlayerData:GetProfile(player)

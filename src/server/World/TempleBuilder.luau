@@ -2,6 +2,9 @@
 -- Builds a configurable temple from data. Produces geometry, relic spawn
 -- points, trap part references, and an extraction prompt for domain services.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
 local BuilderUtil = require(script.Parent.BuilderUtil)
 
 local TempleBuilder = {}
@@ -275,6 +278,160 @@ local function buildBladeTrap(folder: Instance, origin: Vector3, config: any, th
 	}
 end
 
+local function buildGuardian(folder: Instance, origin: Vector3, config: any)
+	local kind = GameConfig.Enemies.Kinds[config.kind]
+	local bodyColor = Color3.fromRGB(
+		(config.bodyColor and config.bodyColor[1]) or kind.bodyColor[1],
+		(config.bodyColor and config.bodyColor[2]) or kind.bodyColor[2],
+		(config.bodyColor and config.bodyColor[3]) or kind.bodyColor[3]
+	)
+	local eyeColor = Color3.fromRGB(
+		(config.eyeColor and config.eyeColor[1]) or kind.eyeColor[1],
+		(config.eyeColor and config.eyeColor[2]) or kind.eyeColor[2],
+		(config.eyeColor and config.eyeColor[3]) or kind.eyeColor[3]
+	)
+
+	local firstWaypoint = config.waypoints[1]
+	local spawnPosition = offsetToWorld(origin, firstWaypoint)
+
+	local model = Instance.new("Model")
+	model.Name = "Guardian_" .. (config.label or kind.name)
+	model.Parent = folder
+
+	local root = BuilderUtil.part({
+		Name = "HumanoidRootPart",
+		Size = Vector3.new(2, 2, 1),
+		CFrame = CFrame.new(spawnPosition + Vector3.new(0, 3, 0)),
+		Color = bodyColor,
+		Material = Enum.Material.Slate,
+		Transparency = 1,
+		Anchored = false,
+		CanCollide = true,
+		CanQuery = true,
+		CanTouch = false,
+		CastShadow = false,
+		Parent = model,
+	})
+
+	local torso = BuilderUtil.part({
+		Name = "Torso",
+		Size = Vector3.new(3, 3.4, 1.8),
+		CFrame = root.CFrame,
+		Color = bodyColor,
+		Material = Enum.Material.Slate,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+		Parent = model,
+	})
+	torso.Massless = true
+
+	local head = BuilderUtil.part({
+		Name = "Head",
+		Size = Vector3.new(1.8, 1.8, 1.8),
+		CFrame = root.CFrame + Vector3.new(0, 3, 0),
+		Color = bodyColor,
+		Material = Enum.Material.Slate,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+		Parent = model,
+	})
+	head.Massless = true
+
+	local eye = BuilderUtil.part({
+		Name = "Eye",
+		Size = Vector3.new(1.4, 0.5, 0.3),
+		CFrame = head.CFrame + Vector3.new(0, 0, -0.9),
+		Color = eyeColor,
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+		CastShadow = false,
+		Parent = model,
+	})
+	eye.Massless = true
+	BuilderUtil.pointLight(eye, eyeColor, 0.8, 12)
+
+	local leftArm = BuilderUtil.part({
+		Name = "LeftArm",
+		Size = Vector3.new(1.2, 3, 1.2),
+		CFrame = root.CFrame + Vector3.new(-2.1, 0, 0),
+		Color = bodyColor,
+		Material = Enum.Material.Slate,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+		Parent = model,
+	})
+	leftArm.Massless = true
+
+	local rightArm = BuilderUtil.part({
+		Name = "RightArm",
+		Size = Vector3.new(1.2, 3, 1.2),
+		CFrame = root.CFrame + Vector3.new(2.1, 0, 0),
+		Color = bodyColor,
+		Material = Enum.Material.Slate,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+		Parent = model,
+	})
+	rightArm.Massless = true
+
+	local function weld(part: BasePart)
+		local weldConstraint = Instance.new("WeldConstraint")
+		weldConstraint.Part0 = root
+		weldConstraint.Part1 = part
+		weldConstraint.Parent = part
+	end
+	weld(torso)
+	weld(head)
+	weld(eye)
+	weld(leftArm)
+	weld(rightArm)
+
+	-- A custom rig moves through its HumanoidRootPart, so keep the standard
+	-- (default) rig type. `AutoRotate` is left on so the Humanoid faces its
+	-- MoveTo target for us; the state machine stays enabled so `MoveTo` actually
+	-- drives the walk.
+	local humanoid = Instance.new("Humanoid")
+	humanoid.Name = "Humanoid"
+	humanoid.WalkSpeed = (config.walkSpeed or kind.walkSpeed)
+	humanoid.MaxHealth = kind.health
+	humanoid.Health = kind.health
+	humanoid.BreakJointsOnDeath = false
+	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	humanoid.Parent = model
+
+	model.PrimaryPart = root
+
+	BuilderUtil.billboard(head, config.label or kind.name, eyeColor, 160, 30, folder)
+
+	local waypoints = {}
+	for _, waypoint in config.waypoints do
+		table.insert(waypoints, offsetToWorld(origin, waypoint))
+	end
+
+	return {
+		kind = config.kind,
+		label = config.label or kind.name,
+		model = model,
+		humanoid = humanoid,
+		root = root,
+		head = head,
+		eye = eye,
+		waypoints = waypoints,
+		damage = config.damage or kind.damage,
+		walkSpeed = config.walkSpeed or kind.walkSpeed,
+		aggroRange = config.aggroRange or kind.aggroRange,
+		contactRange = config.contactRange or kind.contactRange,
+		attackWindup = config.attackWindup or kind.attackWindup,
+		eyeColor = eyeColor,
+	}
+end
+
 function TempleBuilder.Build(world: Instance, templeId: string, config: any)
 	local origin = Vector3.new(config.origin.x, config.origin.y, config.origin.z)
 	local hall = config.hall
@@ -419,6 +576,13 @@ function TempleBuilder.Build(world: Instance, templeId: string, config: any)
 		end
 	end
 
+	local guardians = {}
+	for _, guardianConfig in config.guardians or {} do
+		if guardianConfig.kind == "Guardian" then
+			table.insert(guardians, buildGuardian(folder, origin, guardianConfig))
+		end
+	end
+
 	local extractionPosition = offsetToWorld(origin, config.extractionOffset)
 	BuilderUtil.part({
 		Name = "ExtractionPad",
@@ -472,6 +636,7 @@ function TempleBuilder.Build(world: Instance, templeId: string, config: any)
 		},
 		relicSpawns = relicSpawns,
 		traps = traps,
+		guardians = guardians,
 		palette = theme,
 	}
 end

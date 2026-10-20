@@ -6,9 +6,14 @@ intent; the config is the source of truth.
 ## Currencies and rates
 
 - Start gold: 250.
-- Museum income is expressed per minute, additive per exhibit, multiplied by the
-  Museum Expansion bonus (`+5%` per level) and capped at `5000/min`.
-- Pending income caps at the 8-hour offline window and at `50000`.
+- Museum income is displayed and accrued per second (`/sec`) in the UI, but is
+  authored per minute in `GameConfig` for readability. It is additive per
+  exhibit, multiplied by the Museum Expansion bonus (`+5%` per level), and the
+  per-minute rate is capped at `5000/min` (`~83.3/sec`) before conversion.
+- While online, income auto-deposits every second. While offline it caps at the
+  4-hour offline window (`24h` for VIP Pass holders) and at the pending ceiling
+  (`50000`, or `200000` for VIP), and is held for the Welcome Back modal. The
+  free 1x claim grants it as-is; the 199-Robux 2x doubles that one payout.
 - Extraction converts carried relic value to gold at `25%`.
 
 ## Carrying
@@ -23,12 +28,25 @@ intent; the config is the source of truth.
 
 | Temple | Unlock | Duration | Required relics | Hazard profile |
 | --- | --- | --- | --- | --- |
-| Tutorial Ruins | free | 5:00 | 1 | one dart trap, one boulder |
-| Forgotten Catacombs | 1 extraction + 500 gold | 6:00 | 2 | two dart traps, one boulder, tighter paths |
-| Sunken Sanctum | 2 extractions + 1500 gold | 7:00 | 3 | two whirling blades, one dart trap, one boulder |
+| Tutorial Ruins | free | 5:00 | 1 | one dart trap, one boulder (softened tell: 26 dmg, 2.4 s) |
+| Forgotten Catacombs | 1 extraction + 500 gold | 6:00 | 2 | two dart traps, one boulder, one Stone Guardian, tighter paths |
+| Sunken Sanctum | 2 extractions + 1500 gold | 7:00 | 3 | two whirling blades, one dart trap, one boulder, two guardians (one faster) |
+
+### Guardians
+
+| Enemy | Speed | Damage | Aggro | Notes |
+| --- | --- | --- | --- | --- |
+| Stone Guardian | 12 | 22 | 46 | Catacombs patrol; base tuning. |
+| Drowned Warden | 13 | 24 | 46 | Sanctum; slightly faster. |
+| Deep Sentinel | 15 | 26 | 52 | Sanctum; fastest, teal eyes. |
+
+Guardians patrol a waypoint loop, chase a visible player at `speed × 1.15`, and
+deal damage after a 0.45 s windup (dodgeable). Contact hits share the standard
+0.35 s invulnerability window, so they cannot chain-stun. There is no reward for
+a guardian; they are a positional hazard within the escape loop.
 
 Relic values span 90 (Clay Ankh) to 15000 (Sunken Idol), with income
-90..300/min for the top end.
+90..300/min (`1.5..5/sec`) for the top end.
 
 Blades are rotating sweep hazards. A blade spins at `speed` rad/s; a player
 within `hitRadius` of the blade's swept line (checked on the horizontal plane
@@ -52,8 +70,8 @@ Total pedestals are capped at 8 (4 base + 4 from upgrades).
 - Run length: temple `durationSeconds`.
 - Risk: hazard `interval`, `warning`, `damage`, `radius`, `zone`, and blade
   `speed`, `length`, `hitRadius`.
-- Reward: relic `value` and `incomePerMinute`, and
-  `ExtractionValueToGold`.
+- Reward: relic `value` and `incomePerMinute` (converted to `/sec` for the UI),
+  and `ExtractionValueToGold`.
 - Pacing: `BasePedestals`, upgrade prices and growth.
 
 ## Balance status
