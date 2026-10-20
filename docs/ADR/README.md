@@ -14,6 +14,8 @@ Decision, Consequences, Alternatives.
 | [0007](0007-monetization.md) | Welcome Back offline claim and VIP Pass | Accepted |
 | [0008](0008-guardian-enemies.md) | Guardian enemies (patrol + aggro chase) | Accepted |
 | [0009](0009-tutorial-and-ux.md) | Data-driven tutorial and accessibility preferences | Accepted |
+| [0010](0010-museum-expansion.md) | Expanding museum wings and building enhancements | Accepted |
+| [0011](0011-endgame-temple-and-revive.md) | Endgame Void Citadel, difficulty ramp, and Instant Revive | Accepted |
 
 Add a new ADR (next number) whenever a change alters architecture, security,
 persistence, or a public contract. Never edit an accepted ADR's decision; add a

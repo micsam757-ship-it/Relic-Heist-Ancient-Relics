@@ -482,6 +482,92 @@ test("unlock requirements increase with temple order", function()
 	end
 end)
 
+-- Endgame temple + difficulty ramp -----------------------------------------
+
+test("Void Citadel is the last-order endgame temple", function()
+	local citadel = GameConfig.Temples.VoidCitadel
+	assertTrue(citadel ~= nil, "Void Citadel defined")
+	local maxOrder = 0
+	local maxDifficulty = 0
+	for _, temple in GameConfig.Temples do
+		maxOrder = math.max(maxOrder, temple.order or 0)
+		maxDifficulty = math.max(maxDifficulty, temple.difficulty or 0)
+	end
+	assertEquals(citadel.order, maxOrder, "Void Citadel is the final temple")
+	assertEquals(citadel.difficulty, maxDifficulty, "Void Citadel is the hardest temple")
+	assertEquals(citadel.theme, "void", "Void Citadel uses the void theme")
+end)
+
+test("Void Citadel is harder and richer than every earlier temple", function()
+	local citadel = GameConfig.Temples.VoidCitadel
+	for templeId, temple in GameConfig.Temples do
+		if templeId ~= "VoidCitadel" then
+			assertTrue(citadel.minExtractions > temple.minExtractions, templeId .. " unlock is below the Citadel")
+			assertTrue(citadel.unlockPrice >= temple.unlockPrice, templeId .. " price is above the Citadel")
+			assertTrue(
+				citadel.durationSeconds >= temple.durationSeconds,
+				templeId .. " grants a longer expedition than the Citadel"
+			)
+		end
+	end
+	local total = 0
+	for _, spawn in citadel.relicSpawns do
+		total += GameConfig.Relics[spawn.definitionId].value
+	end
+	local previousTotal = 0
+	for _, spawn in GameConfig.Temples.SunkenSanctum.relicSpawns do
+		previousTotal += GameConfig.Relics[spawn.definitionId].value
+	end
+	assertTrue(total > previousTotal, "Citadel haul outvalues the previous endgame")
+end)
+
+test("every Void Citadel relic is Legendary or Mythic and unique to the Citadel", function()
+	for _, spawn in GameConfig.Temples.VoidCitadel.relicSpawns do
+		local relic = GameConfig.Relics[spawn.definitionId]
+		local rank = GameConfig.Rarities[relic.rarity].rank
+		assertTrue(rank >= GameConfig.Rarities.Legendary.rank, relic.name .. " is below Legendary")
+		assertEquals(#relic.templeIds, 1, relic.name .. " should be Citadel-exclusive")
+		assertEquals(relic.templeIds[1], "VoidCitadel", relic.name .. " is not tied to the Citadel")
+	end
+end)
+
+test("Void Warden kind is stronger than the base Guardian", function()
+	local warden = GameConfig.Enemies.Kinds.VoidWarden
+	local guardian = GameConfig.Enemies.Kinds.Guardian
+	assertTrue(warden ~= nil, "VoidWarden kind defined")
+	assertTrue(warden.aggroRange > guardian.aggroRange, "Void Warden detects from farther")
+	assertTrue(warden.damage >= guardian.damage, "Void Warden hits at least as hard")
+	assertTrue(warden.walkSpeed >= guardian.walkSpeed, "Void Warden is at least as fast")
+	assertTrue(warden.attackWindup <= guardian.attackWindup, "Void Warden winds up no slower")
+	assertEquals(GameConfig.Temples.VoidCitadel.guardians[1].kind, "VoidWarden", "Citadel uses Void Wardens")
+end)
+
+test("guardian tuning holds an aggressive chase through broken line of sight", function()
+	local enemies = GameConfig.Enemies
+	assertTrue(enemies.HuntSeconds > 0, "hunt window is positive")
+	assertTrue(
+		math.max(enemies.HuntSeconds, enemies.AggroLingerSeconds) > 2.5,
+		"a broken line of sight keeps the chase alive longer than the old 2.5s"
+	)
+	assertTrue(enemies.HuntArriveTolerance > 0, "hunt arrival tolerance is positive")
+	assertTrue(enemies.Chase.SpeedMultiplier > 1, "chase is faster than patrol")
+	assertTrue(enemies.TickSeconds <= 0.1, "guardians think at least every 100ms")
+end)
+
+test("hard temples offer the Instant Revive product", function()
+	local monetization = GameConfig.Monetization
+	assertTrue(monetization.InstantRevivePriceRobux > 0, "revive price is set")
+	assertTrue(monetization.InstantReviveWindowSeconds > 0, "revive window is positive")
+	local allowed = {}
+	for _, templeId in monetization.ReviveTempleIds do
+		allowed[templeId] = true
+		assertTrue(GameConfig.Temples[templeId] ~= nil, "revive temple " .. tostring(templeId) .. " is defined")
+	end
+	assertTrue(allowed.SunkenSanctum == true, "Sunken Sanctum is a hard temple")
+	assertTrue(allowed.VoidCitadel == true, "Void Citadel is a hard temple")
+	assertTrue(allowed.TutorialRuins ~= true, "the tutorial temple never offers a revive")
+end)
+
 -- M5 config integrity ------------------------------------------------------
 
 test("tutorial steps are well-formed, ordered and match config actions", function()
@@ -683,8 +769,10 @@ local DOCUMENTED_ACTIONS = {
 	"AbandonExpedition",
 	"BuyUpgrade",
 	"ClaimOfflineIncome",
+	"DeclineInstantRevive",
 	"EnterExpedition",
 	"PlaceRelic",
+	"PurchaseInstantRevive",
 	"PurchaseOfflineDouble",
 	"RemoveRelic",
 	"RequestState",
@@ -739,8 +827,198 @@ test("contract profile requirement defaults to true and honors exemptions", func
 	assertTrue(Contracts.requiresProfile("SomethingUnknown"), "unknown action defaults to requiring profile")
 end)
 
--- Summary ------------------------------------------------------------------
+-- Museum building (wings, pedestal tiers, enhancements) --------------------
 
+local MuseumBuilder = require("../src/shared/Domain/MuseumBuilder")
+
+test("placements assigns stable 1-based global ids in wing order", function()
+	local wings = GameConfig.MuseumBuilding.Wings
+	local placements = MuseumBuilder.placements(wings)
+	assertEquals(#placements, GameConfig.Museum.MaxPedestals, "total pedestals matches cap")
+	assertEquals(placements[1].id, "1", "first id")
+	assertEquals(placements[1].wingId, "Foyer", "first wing")
+	assertEquals(placements[#placements].id, tostring(#placements), "last id")
+	local seen = {}
+	for _, placement in placements do
+		assertTrue(seen[placement.id] == nil, "id " .. placement.id .. " unique")
+		seen[placement.id] = true
+	end
+end)
+
+test("placements applies wing offset to plot-local position", function()
+	local foyer = GameConfig.MuseumBuilding.Wings[1]
+	local wing = GameConfig.MuseumBuilding.Wings[2]
+	local wings = { foyer, wing }
+	local placements = MuseumBuilder.placements(wings)
+	local hallFirst = placements[#foyer.pedestalSlots + 1]
+	local slot = wing.pedestalSlots[1]
+	assertEquals(hallFirst.wingId, "ExhibitionHall", "first hall pedestal follows the foyer")
+	assertEquals(hallFirst.x, wing.offset.x + slot.x, "x offset applied")
+	assertEquals(hallFirst.z, wing.offset.z + slot.z, "z offset applied")
+end)
+
+test("totalPedestals sums every wing", function()
+	local total = 0
+	for _, wing in GameConfig.MuseumBuilding.Wings do
+		total += #wing.pedestalSlots
+	end
+	assertEquals(MuseumBuilder.totalPedestals(GameConfig.MuseumBuilding.Wings), total, "sums every wing")
+	assertTrue(total > 8, "the museum offers more than the original 8 slots")
+end)
+
+test("museum upgrades unlock exactly every pedestal slot", function()
+	local movement = GameConfig.Movement
+	local floor = GameConfig.Upgrades.MuseumFloor
+	local extra = GameConfig.Upgrades.ExtraPedestal
+	local total = MuseumBuilder.totalPedestals(GameConfig.MuseumBuilding.Wings)
+	local reachable = Economy.pedestalCount(
+		movement.BasePedestals,
+		floor.maxLevel,
+		floor.perLevel,
+		extra.maxLevel,
+		extra.perLevel,
+		GameConfig.Museum.MaxPedestals
+	)
+	assertEquals(reachable, total, "fully upgraded museum unlocks every slot")
+	assertTrue(GameConfig.Museum.MaxPedestals >= total, "cap covers every slot")
+end)
+
+test("unlockedWings grows with MuseumFloor level", function()
+	local wings = GameConfig.MuseumBuilding.Wings
+	assertEquals(#MuseumBuilder.unlockedWings(wings, 0), 1, "foyer only at level 0")
+	assertEquals(#MuseumBuilder.unlockedWings(wings, 1), 2, "hall at level 1")
+	assertEquals(#MuseumBuilder.unlockedWings(wings, 2), 3, "vault at level 2")
+	assertEquals(#MuseumBuilder.unlockedWings(wings, 99), 3, "no extra wings beyond config")
+end)
+
+test("placementById resolves known ids and returns nil otherwise", function()
+	local placements = MuseumBuilder.placements(GameConfig.MuseumBuilding.Wings)
+	assertEquals(MuseumBuilder.placementById(placements, "1").wingId, "Foyer", "id 1")
+	assertEquals(MuseumBuilder.placementById(placements, "999"), nil, "unknown id")
+end)
+
+test("tierForRarity maps known rarities and falls back to Common", function()
+	local tiers = GameConfig.MuseumBuilding.PedestalTiers
+	assertEquals(MuseumBuilder.tierForRarity(tiers, "Legendary").tier, "Gilded", "legendary tier")
+	assertEquals(MuseumBuilder.tierForRarity(tiers, "Mythic").tier, "Mythic", "mythic tier")
+	assertEquals(MuseumBuilder.tierForRarity(tiers, nil).tier, tiers.Common.tier, "nil falls back")
+	assertEquals(MuseumBuilder.tierForRarity(tiers, "Bogus").tier, tiers.Common.tier, "unknown falls back")
+end)
+
+test("enhancementActive is false at level 0 and true above", function()
+	assertFalse(MuseumBuilder.enhancementActive(0), "level 0 inactive")
+	assertTrue(MuseumBuilder.enhancementActive(1), "level 1 active")
+end)
+
+test("featureLevels clamps to each upgrade maxLevel and reads config mapping", function()
+	local enhancements = GameConfig.MuseumBuilding.Enhancements
+	local levels = MuseumBuilder.featureLevels(enhancements, GameConfig.Upgrades, {
+		MarblePillars = GameConfig.Upgrades.MarblePillars.maxLevel,
+		Lighting = 999,
+	})
+	local pillarsMax = GameConfig.Upgrades.MarblePillars.maxLevel
+	assertEquals(levels.pillars, pillarsMax, "pillars at max")
+	assertEquals(levels.lighting, GameConfig.Upgrades.Lighting.maxLevel, "lighting clamped")
+	assertEquals(levels.glassCases, 0, "unowned defaults to 0")
+end)
+
+test("every enhancement maps to a real visual upgrade", function()
+	for feature, upgradeId in GameConfig.MuseumBuilding.Enhancements do
+		local upgrade = GameConfig.Upgrades[upgradeId]
+		assertTrue(upgrade ~= nil, feature .. " maps to a real upgrade")
+		assertEquals(upgrade.effect, "visual", upgradeId .. " is a visual upgrade")
+	end
+end)
+
+test("schema v3 profile migrates to v4 with enhancement keys seeded", function()
+	local profile = Schema.createDefault(0, "s", 0)
+	profile.schemaVersion = 3
+	profile.upgrades = { SprintBoots = 1 }
+	local migrated, changed, err = Schema.migrate(profile, 0)
+	assertEquals(err, nil, "no migration error")
+	assertTrue(changed, "migration reported")
+	assertEquals(migrated.schemaVersion, 4, "bumped to current")
+	assertEquals(migrated.upgrades.MarblePillars, 0, "enhancement seeded")
+	assertEquals(migrated.upgrades.SprintBoots, 1, "existing upgrade preserved")
+end)
+
+test("normalize preserves enhancement upgrade levels", function()
+	local profile = Schema.createDefault(0, "s", 0)
+	profile.upgrades.Chandeliers = 2
+	local normalized = Schema.normalize(profile, 0)
+	assertEquals(normalized.upgrades.Chandeliers, 2, "enhancement level kept")
+end)
+
+-- World layout --------------------------------------------------------------
+test("world layout constants are consistent", function()
+	assertTrue(GameConfig.World ~= nil, "World config present")
+	assertTrue(GameConfig.World.RingRadius > 0, "ring radius positive")
+	assertTrue(GameConfig.World.MaxPlots > 0, "max plots positive")
+	assertTrue(GameConfig.World.GroundTop == 0, "ground top at world zero")
+	assertTrue(GameConfig.World.Hub.PlazaRadius > 0, "hub plaza radius positive")
+end)
+
+test("every temple sits beyond the hub edge for its avenue", function()
+	local hubRadius = GameConfig.World.Hub.PlazaRadius
+	for _, temple in GameConfig.Temples do
+		assertTrue(temple.origin.z > hubRadius, "temple sits beyond the hub edge")
+	end
+end)
+
+test("plot ring radius is large enough for its plot count", function()
+	local ring = GameConfig.World.RingRadius
+	local count = GameConfig.World.MaxPlots
+	local chord = 2 * ring * math.sin(math.pi / count)
+	assertTrue(chord >= 100, "adjacent plots have room without overlapping")
+end)
+
+test("museum wings fit inside the plot footprint and stack without overlap", function()
+	local foyer = GameConfig.MuseumBuilding.Wings[1]
+	local footprint = foyer.size.x
+	for _, wing in GameConfig.MuseumBuilding.Wings do
+		assertTrue(wing.size.x <= footprint, wing.id .. " is no wider than the foyer footprint")
+		assertTrue(wing.size.z <= footprint, wing.id .. " is no deeper than the foyer footprint")
+	end
+	local ordered = {}
+	for _, wing in GameConfig.MuseumBuilding.Wings do
+		table.insert(ordered, wing)
+	end
+	table.sort(ordered, function(a, b)
+		return a.offset.z < b.offset.z
+	end)
+	local previousBack = nil
+	for _, wing in ordered do
+		local front = wing.offset.z - wing.size.z / 2
+		local back = wing.offset.z + wing.size.z / 2
+		if previousBack ~= nil then
+			assertTrue(front >= previousBack, wing.id .. " clears the previous wing along Z")
+		end
+		previousBack = back
+	end
+end)
+
+test("museum wings use human-scale interior heights", function()
+	for _, wing in GameConfig.MuseumBuilding.Wings do
+		assertTrue(wing.height >= 14 and wing.height <= 16, wing.id .. " ceiling is 14-16 studs tall")
+	end
+end)
+
+test("temple corridor halls do not overlap along +Z", function()
+	local ordered = {}
+	for _, temple in GameConfig.Temples do
+		table.insert(ordered, temple)
+	end
+	table.sort(ordered, function(a, b)
+		return a.origin.z < b.origin.z
+	end)
+	for index = 2, #ordered do
+		local previous = ordered[index - 1]
+		local previousBack = previous.origin.z + previous.hall.length
+		assertTrue(ordered[index].origin.z > previousBack, "temple fronts clear the previous temple's back")
+	end
+end)
+
+-- Summary ------------------------------------------------------------------
 print(string.format("\n%d passed, %d failed", passed, failed))
 if failed > 0 then
 	error(string.format("%d test(s) failed", failed))

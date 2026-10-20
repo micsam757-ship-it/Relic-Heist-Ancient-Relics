@@ -19,6 +19,9 @@ intent; the config is the source of truth.
 ## Carrying
 
 - Base capacity 40 weight; `+20` per Reinforced Backpack level.
+- Base walk speed 19 studs/s (`GameConfig.Movement.BaseWalkSpeed`), tuned for the
+  tightened 380-stud plot ring so foyer → hub plaza → temple portal crossings stay
+  fast and fluid.
 - Weight reduces speed at `0.8%` per weight unit; Sprint Boots reduce the
   penalty by `4%` per level; speed floors at `35%`.
 - Max 10 carried relics regardless of weight.
@@ -31,22 +34,29 @@ intent; the config is the source of truth.
 | Tutorial Ruins | free | 5:00 | 1 | one dart trap, one boulder (softened tell: 26 dmg, 2.4 s) |
 | Forgotten Catacombs | 1 extraction + 500 gold | 6:00 | 2 | two dart traps, one boulder, one Stone Guardian, tighter paths |
 | Sunken Sanctum | 2 extractions + 1500 gold | 7:00 | 3 | two whirling blades, one dart trap, one boulder, two guardians (one faster) |
+| Void Citadel | 4 extractions + 5000 gold | 8:00 | 4 | two void darts, two rift blades, a collapsing star, three Void Wardens (one faster Rift Keeper) |
 
 ### Guardians
 
-| Enemy | Speed | Damage | Aggro | Notes |
-| --- | --- | --- | --- | --- |
-| Stone Guardian | 12 | 22 | 46 | Catacombs patrol; base tuning. |
-| Drowned Warden | 13 | 24 | 46 | Sanctum; slightly faster. |
-| Deep Sentinel | 15 | 26 | 52 | Sanctum; fastest, teal eyes. |
+| Enemy | Speed | Damage | Aggro | Windup | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Stone Guardian | 12 | 24 | 54 | 0.40 s | Base kind; Catacombs patrol. |
+| Drowned Warden | 13 | 24 | 54 | 0.40 s | Sanctum; slightly faster. |
+| Deep Sentinel | 15 | 26 | 52 | 0.40 s | Sanctum; fast, teal eyes. |
+| Void Warden | 17 | 32 | 64 | 0.35 s | Void Citadel; endgame kind. |
+| Rift Keeper | 19 | 36 | 70 | 0.35 s | Void Citadel; fastest, one per temple. |
 
-Guardians patrol a waypoint loop, chase a visible player at `speed × 1.15`, and
-deal damage after a 0.45 s windup (dodgeable). Contact hits share the standard
-0.35 s invulnerability window, so they cannot chain-stun. There is no reward for
-a guardian; they are a positional hazard within the escape loop.
+Guardians patrol a waypoint loop; when a player is visible within aggro range the
+guardian chases at `speed × 1.35`. Deal damage after the listed windup
+(dodgeable). If the player breaks line of sight or stealths, the guardian keeps
+chasing toward the player's **last-known position** for `HuntSeconds` (4 s) or
+until it arrives, then resumes patrol; aggro also lingers `AggroLingerSeconds`
+(5 s). Contact hits share the standard 0.35 s invulnerability window and a 0.85 s
+self-cooldown, so they cannot chain-stun. There is no reward for a guardian; they
+are a positional hazard within the escape loop.
 
-Relic values span 90 (Clay Ankh) to 15000 (Sunken Idol), with income
-90..300/min (`1.5..5/sec`) for the top end.
+Relic values span 90 (Clay Ankh) to 40000 (Eye of the Void), with income
+90..700/min for the Abyssal top end.
 
 Blades are rotating sweep hazards. A blade spins at `speed` rad/s; a player
 within `hitRadius` of the blade's swept line (checked on the horizontal plane
@@ -60,16 +70,39 @@ player is in the temple, so blades cost nothing on an empty server.
 | Sprint Boots | 5 | 200 | 1.75 | -4% weight penalty / level |
 | Reinforced Backpack | 5 | 250 | 1.75 | +20 capacity / level |
 | Reinforced Armor | 5 | 300 | 1.75 | +20 max health / level |
-| Museum Expansion | 2 | 800 | 2.1 | +2 pedestals, +5% income / level |
+| Museum Expansion | 2 | 800 | 2.1 | +3 pedestals, +5% income / level |
 | Extra Pedestal | 2 | 500 | 2.1 | +1 pedestal / level |
+| Marble Colonnade | 3 | 400 | 1.9 | visual: pillars in each wing |
+| Gallery Lighting | 3 | 500 | 1.9 | visual: sconces and spotlights |
+| Glass Display Cases | 2 | 700 | 2.0 | visual: glass over each relic |
+| Velvet Ropes | 2 | 650 | 2.0 | visual: cordons around exhibits |
+| Crystal Chandeliers | 2 | 900 | 2.1 | visual: chandeliers per wing |
 
-Total pedestals are capped at 8 (4 base + 4 from upgrades).
+Total pedestals are capped at 14 (6 base + 8 from upgrades), distributed across
+the three wings (Grand Foyer 6, Exhibition Hall 4, Secure Vault 4). The five
+`effect = "visual"` upgrades (ADR 0010) change only the museum's appearance; they
+add no gameplay power, so they are priced as optional prestige buys.
+
+## Monetization
+
+| Product | Price | Effect | Gate |
+| --- | --- | --- | --- |
+| Offline x2 | 199 R | Doubles one pending offline payout | Offered with the Welcome Back modal |
+| VIP Pass | Game Pass | 24h offline window, higher pending ceiling | Read on join |
+| Instant Revive | 99 R | Revive in place on death, keep carried relics | Only in `Monetization.ReviveTempleIds` (Sunken Sanctum, Void Citadel) |
+
+The revive window is 12 s; ignoring it (or declining) resolves the death and
+loses carried relics. All product IDs default to 0 (unconfigured): paid offers
+are suppressed and the game stays fully playable.
 
 ## Tuning levers
 
 - Run length: temple `durationSeconds`.
 - Risk: hazard `interval`, `warning`, `damage`, `radius`, `zone`, and blade
   `speed`, `length`, `hitRadius`.
+- Enemy pressure: `Enemies.AggroLingerSeconds`, `HuntSeconds`,
+  `HuntArriveTolerance`, `Chase.SpeedMultiplier`, `ContactCooldownSeconds`, and
+  per-kind `aggroRange`/`contactRange`/`attackWindup`.
 - Reward: relic `value` and `incomePerMinute` (converted to `/sec` for the UI),
   and `ExtractionValueToGold`.
 - Pacing: `BasePedestals`, upgrade prices and growth.

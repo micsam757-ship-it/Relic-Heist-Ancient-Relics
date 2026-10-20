@@ -18,9 +18,10 @@ Prerequisites for the DataStore and monetization sessions (see Blockers):
 
 - **DataStore:** Studio → Game Settings → Security → enable *Enable Studio Access
   to API Services*, then restart the session.
-- **Monetization:** a real Developer Product id in
-  `GameConfig.Monetization.OfflineDoubleProductId` and a Game Pass id in
-  `GameConfig.Monetization.VipPassId` (both are `0` today).
+- **Monetization:** real Developer Product ids in
+  `GameConfig.Monetization.OfflineDoubleProductId` and
+  `GameConfig.Monetization.InstantReviveProductId`, plus a Game Pass id in
+  `GameConfig.Monetization.VipPassId` (all `0` today).
 - **Audio:** real asset ids in `GameConfig.Audio.Sounds[*].assetId` (all `0`
   today; the pool is intentionally silent until then).
 
@@ -36,7 +37,7 @@ Admin commands are available in Studio via chat: `!rh_help`, `!rh_state`,
 | A1 | Clean boot | Start Play; watch Output | No red errors after boot; `Server` and `Client` start | |
 | A2 | Spawn on plot | Observe spawn | Player spawns on their museum plot ring | |
 | A3 | Walk to hub | Walk inward | Hub at origin is reachable; no collision traps | |
-| A4 | World integrity | Look around | 3 temples, 12 relic pedestals/display slots render, hub intact | |
+| A4 | World integrity | Look around | 4 temples (incl. Void Citadel) and 14 relic pedestals/display slots render; one continuous ground plane; marble avenues reach every plot and temple entrance; hub intact | |
 | A5 | HUD legible | Read top bar | Gold, capacity, and objectives are readable | |
 
 ---
@@ -63,10 +64,10 @@ Admin commands are available in Studio via chat: `!rh_help`, `!rh_state`,
 | --- | --- | --- | --- | --- |
 | C1 | Spawn/patrol | Enter `ForgottenCatacombs` | Stone Guardian spawns on the floor and patrols 4 waypoints without stopping | |
 | C2 | Facing | Watch while walking | Guardian faces its movement direction | |
-| C3 | Aggro | Enter ~46 studs with line of sight | Chase starts; speed visibly increases | |
-| C4 | De-aggro | Break line of sight behind a pillar | Aggro drops ~2.5s; guardian returns to patrol | |
+| C3 | Aggro | Enter ~54 studs with line of sight | Chase starts; speed visibly increases (~1.35x) | |
+| C4 | De-aggro | Break line of sight behind a pillar | Aggro lingers ~5s; with line of sight broken the guardian hunts the last-known position ~4s before returning to patrol | |
 | C5 | Contact | Let it reach you | "<label> strikes!" warning, then damage after windup; dodging during the tell avoids it | |
-| C6 | Invuln window | Take repeated contact | No chain-hits faster than ~1.1s | |
+| C6 | Invuln window | Take repeated contact | No chain-hits faster than the 0.85s contact cooldown, and never faster than the 0.35s invulnerability window | |
 | C7 | Two guardians | Enter `SunkenSanctum` | Both spawn and patrol; Deep Sentinel is visibly faster than Drowned Warden | |
 | C8 | Clean up | Leave/extract, then re-enter | Guardians stop on leave; patrol resets on re-enter; none remain when empty | |
 | C9 | No warning | Check Output | No "Guardian ... has no RootPart" warning | |
@@ -85,6 +86,9 @@ Admin commands are available in Studio via chat: `!rh_help`, `!rh_state`,
 | D6 | Unlock 1 | `!rh_state`; earn 1 extraction + 500 gold | `ForgottenCatacombs` unlocks | |
 | D7 | Unlock 2 | Earn 2 extractions + 1500 gold | `SunkenSanctum` unlocks and spawns its four relics | |
 | D8 | Locked panel | Open Expeditions | Locked rows show `current/required` extractions and remaining count | |
+| D9 | Museum wings | Buy Museum Expansion to level 1, then level 2 | Exhibition Hall, then Secure Vault appear; the plot rebuilds in place and the player keeps standing on it | |
+| D10 | Enhancements | Buy a visual upgrade (e.g. Marble Colonnade) | Plot rebuilds with the new fixtures; existing exhibits re-home onto their pedestals | |
+| D11 | Void Citadel unlock | Earn 4 extractions + 5000 gold | `VoidCitadel` unlocks on its hub portal; the `void` hall and its guardians render | |
 
 ---
 
@@ -170,6 +174,9 @@ Requires real ids (see prerequisites).
 | J3 | Pass | Join with the Pass owned | VIP entitlements granted | |
 | J4 | Audio | With asset ids set, trigger cues | Click/open/close, collect, damage, extract, warning, tutorial cues play | |
 | J5 | Silent default | With ids at 0 | No errors; the pool is silent by design | |
+| J6 | Revive offer | Die in `SunkenSanctum`/`VoidCitadel` with the revive product id set | Revive modal appears; death is held while the 12s window runs | |
+| J7 | Revive grant | Choose Revive Now and complete the purchase | Character revives in place at full health with carried relics intact; no grant on a repeated receipt | |
+| J8 | Revive decline/expire | Choose "Let me perish", or let the window lapse | Death resolves normally; carried relics are lost | |
 
 ---
 

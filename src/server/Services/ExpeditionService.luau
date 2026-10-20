@@ -189,6 +189,36 @@ local function onDeath(player: Player)
 	if expedition == nil then
 		return
 	end
+
+	-- Hard temples can offer an Instant Revive before relics are lost. Hold the
+	-- death in a pending state; MonetizationService resolves it on purchase, or
+	-- the window timer (below) resolves it if the offer is ignored.
+	if state.ctx.Services.Monetization and not expedition.pendingRevive then
+		if state.ctx.Services.Monetization:CanOfferRevive(player, expedition.templeId) then
+			expedition.pendingRevive = true
+			local windowSeconds = state.ctx.Services.Monetization:OfferRevive(player, expedition.templeId)
+			task.delay(windowSeconds, function()
+				local pending = state.expeditions[player]
+				if pending and pending.pendingRevive then
+					state.ctx.Services.Monetization:ClearReviveOffer(player)
+					ExpeditionService:ResolveDeath(player)
+					state.ctx.Services.Network:PushEvent(player, "ReviveClosed", { success = false })
+				end
+			end)
+			return
+		end
+	end
+
+	ExpeditionService:ResolveDeath(player)
+end
+
+-- Final death resolution: clears the expedition and applies the relic loss and
+-- summary. Called directly for normal deaths, or after a revive offer closes.
+function ExpeditionService:ResolveDeath(player: Player)
+	local expedition = state.expeditions[player]
+	if expedition == nil then
+		return
+	end
 	local lostCount = #expedition.carried
 	local cause = player:GetAttribute("LastDamageSource") or "Unknown"
 	local profile = state.ctx.Services.PlayerData:GetProfile(player)
@@ -215,11 +245,50 @@ local function onDeath(player: Player)
 	state.ctx.Services.Network:PushState(player)
 end
 
+-- Applied when an Instant Revive purchase succeeds. Keeps the expedition and
+-- carried relics, restores the player's health and returns them to the temple
+-- spawn. Returns false when there is nothing to revive.
+function ExpeditionService:RevivePlayer(player: Player): boolean
+	local expedition = state.expeditions[player]
+	if expedition == nil or not expedition.pendingRevive then
+		return false
+	end
+	expedition.pendingRevive = false
+
+	local runtime = state.ctx.World.Temples[expedition.templeId]
+	local character = player.Character
+	if character == nil or character.Parent == nil then
+		-- Mid-respawn: LoadCharacter and let the CharacterAdded hook teleport
+		-- the fresh character into the temple.
+		player:LoadCharacter()
+		character = player.Character
+	end
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.Health = humanoid.MaxHealth
+	end
+	if character and runtime then
+		character:PivotTo(runtime.spawnCFrame)
+	end
+	state.ctx.Services.Analytics:Track("revive_granted", { temple = expedition.templeId })
+	state.ctx.Services.Network:PushState(player)
+	return true
+end
+
 local function onCharacter(player: Player, character: Model)
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
 	state.ctx.Services.Upgrade:ApplyEffects(player)
-	if state.expeditions[player] == nil then
+	local expedition = state.expeditions[player]
+	if expedition == nil then
 		humanoid.WalkSpeed = GameConfig.Movement.BaseWalkSpeed
+	else
+		-- A character respawning while an expedition is still live (e.g. after
+		-- an Instant Revive) returns to the temple spawn, not the hub.
+		local runtime = state.ctx.World.Temples[expedition.templeId]
+		if runtime then
+			character:PivotTo(runtime.spawnCFrame)
+		end
+		ExpeditionService:RecalculateMovement(player)
 	end
 	humanoid.Died:Connect(function()
 		onDeath(player)
@@ -278,6 +347,9 @@ function ExpeditionService:Start()
 		local expedition = state.expeditions[player]
 		if expedition == nil then
 			return false, "You are not on an expedition."
+		end
+		if services.Monetization then
+			services.Monetization:ClearReviveOffer(player)
 		end
 		local lostCount = #expedition.carried
 		clearExpedition(player)

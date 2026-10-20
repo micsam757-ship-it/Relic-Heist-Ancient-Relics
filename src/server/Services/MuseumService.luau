@@ -8,7 +8,9 @@ local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
 local Contracts = require(ReplicatedStorage.Shared.Net.Contracts)
 local Economy = require(ReplicatedStorage.Shared.Domain.Economy)
 local Inventory = require(ReplicatedStorage.Shared.Domain.Inventory)
+local MuseumBuilder = require(ReplicatedStorage.Shared.Domain.MuseumBuilder)
 local RelicVisuals = require(script.Parent.Parent.World.RelicVisuals)
+local PlotBuilder = require(script.Parent.Parent.World.PlotBuilder)
 local PlayerUtil = require(script.Parent.Parent.Utilities.PlayerUtil)
 local RateLimiter = require(script.Parent.Parent.Security.RateLimiter)
 local Logger = require(script.Parent.Parent.Utilities.Logger)
@@ -37,6 +39,10 @@ local function profileOf(player: Player)
 	return state.ctx.Services.PlayerData:GetProfile(player)
 end
 
+local function maxPedestals(): number
+	return GameConfig.Museum.MaxPedestals or 8
+end
+
 local function unlockedPedestalCount(profile): number
 	local movement = GameConfig.Movement
 	return Economy.pedestalCount(
@@ -45,8 +51,18 @@ local function unlockedPedestalCount(profile): number
 		GameConfig.Upgrades.MuseumFloor.perLevel,
 		profile.upgrades.ExtraPedestal or 0,
 		GameConfig.Upgrades.ExtraPedestal.perLevel,
-		8
+		maxPedestals()
 	)
+end
+
+-- The rarity tier that should skin a pedestal holding `definitionId`, or the
+-- Common/default tier for an empty or unknown relic.
+local function tierForRelic(definitionId: string?)
+	if definitionId == nil then
+		return MuseumBuilder.tierForRarity(GameConfig.MuseumBuilding.PedestalTiers, nil)
+	end
+	local definition = GameConfig.Relics[definitionId]
+	return MuseumBuilder.tierForRarity(GameConfig.MuseumBuilding.PedestalTiers, definition and definition.rarity or nil)
 end
 
 local function destroyDisplay(player: Player, pedestalId: string)
@@ -87,13 +103,18 @@ function MuseumService:Refresh(player: Player)
 		local unlocked = index <= unlockedCount
 		local uid = profile.museum[pedestal.id]
 		pedestal.prompt.Enabled = unlocked
-		pedestal.top.Color = unlocked and UNLOCKED_TOP or LOCKED_TOP
+		pedestal.model = plot.model
 
 		if not unlocked then
+			pedestal.top.Color = LOCKED_TOP
 			pedestal.labelText.Text = "Locked"
 			pedestal.labelText.TextColor3 = LOCKED_TOP
+			pedestal.labelSubtitle.Text = "Expand your museum"
+			pedestal.labelAccent.BackgroundColor3 = LOCKED_TOP
 			pedestal.prompt.ActionText = "Locked"
 			pedestal.prompt.ObjectText = "Locked Pedestal"
+			PlotBuilder.applyPedestalTier(pedestal, tierForRelic(nil))
+			PlotBuilder.applyLockedIndicator(pedestal, true)
 			destroyDisplay(player, pedestal.id)
 		elseif uid ~= nil then
 			local owned = profile.relics[uid]
@@ -102,18 +123,28 @@ function MuseumService:Refresh(player: Player)
 				if state.displays[player] == nil or state.displays[player][pedestal.id] == nil then
 					buildDisplay(player, plot, pedestal, owned.id)
 				end
+				PlotBuilder.applyPedestalTier(pedestal, tierForRelic(owned.id))
+				PlotBuilder.applyLockedIndicator(pedestal, false)
 				local rarity = GameConfig.Rarities[definition.rarity]
-				pedestal.labelText.Text = definition.name
-				pedestal.labelText.TextColor3 = rarity
-						and Color3.fromRGB(rarity.color[1], rarity.color[2], rarity.color[3])
+				local rarityColor = rarity and Color3.fromRGB(rarity.color[1], rarity.color[2], rarity.color[3])
 					or UNLOCKED_TOP
+				pedestal.top.Color = rarityColor
+				pedestal.labelText.Text = definition.name
+				pedestal.labelText.TextColor3 = rarityColor
+				pedestal.labelSubtitle.Text = definition.rarity
+				pedestal.labelAccent.BackgroundColor3 = rarityColor
 				pedestal.prompt.ActionText = "Remove Display"
 				pedestal.prompt.ObjectText = definition.name
 			end
 		else
 			destroyDisplay(player, pedestal.id)
-			pedestal.labelText.Text = "Empty"
+			PlotBuilder.applyPedestalTier(pedestal, tierForRelic(nil))
+			PlotBuilder.applyLockedIndicator(pedestal, false)
+			pedestal.top.Color = UNLOCKED_TOP
+			pedestal.labelText.Text = "Empty Plinth"
 			pedestal.labelText.TextColor3 = UNLOCKED_TOP
+			pedestal.labelSubtitle.Text = "Exhibit a relic"
+			pedestal.labelAccent.BackgroundColor3 = UNLOCKED_TOP
 			pedestal.prompt.ActionText = "Exhibit Relic"
 			pedestal.prompt.ObjectText = "Pedestal " .. pedestal.id
 		end
@@ -128,7 +159,7 @@ local function onPedestalTriggered(player: Player, plot, pedestal)
 		return
 	end
 	local distance = PlayerUtil.distanceToPoint(player, pedestal.topCFrame.Position)
-	if distance == nil or distance > 18 then
+	if distance == nil or distance > 14 then
 		return
 	end
 
@@ -159,9 +190,31 @@ local function onPedestalTriggered(player: Player, plot, pedestal)
 end
 
 function MuseumService:SetupPlot(player: Player, plot)
+	-- A footprint upgrade rebuilds the plot and fires PlotAssigned again, so any
+	-- display models from the previous plot are stale. Drop them here so Refresh
+	-- rebuilds each relic onto the new pedestals.
+	if state.displays[player] then
+		for _, display in state.displays[player] do
+			if display.Parent then
+				display:Destroy()
+			end
+		end
+	end
+	state.displays[player] = {}
+	if state.connections[player] then
+		for _, connection in state.connections[player] do
+			connection:Disconnect()
+		end
+	end
+
 	state.plots[player] = plot
 	state.connections[player] = {}
+	local profile = profileOf(player)
+	local features = profile and plot.features or {}
 	for _, pedestal in plot.pedestals do
+		if features then
+			PlotBuilder.applyPedestalEnhancements(pedestal, features)
+		end
 		local connection = pedestal.prompt.Triggered:Connect(function(triggeringPlayer)
 			if triggeringPlayer == player then
 				onPedestalTriggered(player, plot, pedestal)
@@ -216,7 +269,7 @@ function MuseumService:Start()
 			return false, "Unknown pedestal."
 		end
 		local distance = PlayerUtil.distanceToPoint(player, pedestal.topCFrame.Position)
-		if distance == nil or distance > 30 then
+		if distance == nil or distance > 20 then
 			return false, "Move closer to that pedestal."
 		end
 
@@ -251,7 +304,7 @@ function MuseumService:Start()
 			return false, "Unknown pedestal."
 		end
 		local distance = PlayerUtil.distanceToPoint(player, pedestal.topCFrame.Position)
-		if distance == nil or distance > 30 then
+		if distance == nil or distance > 20 then
 			return false, "Move closer to that pedestal."
 		end
 

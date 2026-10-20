@@ -9,6 +9,7 @@ local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
 local Encumbrance = require(ReplicatedStorage.Shared.Domain.Encumbrance)
 local Economy = require(ReplicatedStorage.Shared.Domain.Economy)
 local Inventory = require(ReplicatedStorage.Shared.Domain.Inventory)
+local MuseumBuilder = require(ReplicatedStorage.Shared.Domain.MuseumBuilder)
 local Progression = require(ReplicatedStorage.Shared.Domain.Progression)
 local Tutorial = require(ReplicatedStorage.Shared.Domain.Tutorial)
 
@@ -44,7 +45,7 @@ function ViewService:Build(player: Player)
 	local now = os.time()
 	local upgrades = profile.upgrades
 	local movement = GameConfig.Movement
-	local maxPedestals = 8
+	local maxPedestals = GameConfig.Museum.MaxPedestals or 8
 
 	local backpackLevel = upgrades.Backpack or 0
 	local bootsLevel = upgrades.SprintBoots or 0
@@ -96,14 +97,51 @@ function ViewService:Build(player: Player)
 
 	local displayed = table.clone(profile.museum)
 
+	local allWings = GameConfig.MuseumBuilding.Wings
+	local placements = MuseumBuilder.placements(allWings)
+	local placementById: { [string]: MuseumBuilder.Placement } = {}
+	for _, placement in placements do
+		placementById[placement.id] = placement
+	end
+
 	local pedestals = {}
 	for index = 1, maxPedestals do
 		local id = tostring(index)
+		local placement = placementById[id]
+		local uid = profile.museum[id]
+		local owned = uid and profile.relics[uid]
+		local definition = owned and GameConfig.Relics[owned.id]
+		local tier = MuseumBuilder.tierForRarity(
+			GameConfig.MuseumBuilding.PedestalTiers,
+			definition and definition.rarity or nil
+		)
 		table.insert(pedestals, {
 			id = id,
 			unlocked = index <= pedestalCount,
-			uid = profile.museum[id],
+			uid = uid,
+			wingId = placement and placement.wingId or nil,
+			wingName = placement and placement.wingName or nil,
+			tier = tier and tier.tier or nil,
 		})
+	end
+
+	local wings = {}
+	for _, wing in allWings do
+		table.insert(wings, {
+			id = wing.id,
+			name = wing.name,
+			description = wing.description,
+			unlocked = floorLevel >= (wing.unlockLevel or 0),
+			unlockLevel = wing.unlockLevel,
+			pedestalCount = #wing.pedestalSlots,
+		})
+	end
+
+	local enhancements = {}
+	local featureLevels =
+		MuseumBuilder.featureLevels(GameConfig.MuseumBuilding.Enhancements, GameConfig.Upgrades, profile.upgrades)
+	for feature, level in featureLevels do
+		table.insert(enhancements, { feature = feature, level = level })
 	end
 
 	local temples = {}
@@ -181,6 +219,8 @@ function ViewService:Build(player: Player)
 		pedestals = pedestals,
 		pedestalCount = pedestalCount,
 		exhibitedCount = exhibitedCount,
+		wings = wings,
+		enhancements = enhancements,
 		upgrades = {
 			SprintBoots = bootsLevel,
 			Backpack = backpackLevel,

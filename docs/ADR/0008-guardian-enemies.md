@@ -23,8 +23,12 @@ be data-driven like every other piece of content.
   `GameConfig.Enemies.Kinds.Guardian` and global tuning in `GameConfig.Enemies`.
 - **Patrol + aggro chase, no pathfinding.** A guardian walks its waypoint loop.
   When a player is within `aggroRange` *and* has line of sight, it chases at
-  `walkSpeed * 1.15` using `Humanoid:MoveTo`. Aggro lingers for
-  `AggroLingerSeconds` after the target is lost, then it resumes patrol.
+  `walkSpeed * Chase.SpeedMultiplier` using `Humanoid:MoveTo`. If the player
+  breaks line of sight or stealths, the guardian keeps hunting toward the
+  player's last-known position for `HuntSeconds` (or until it arrives, within
+  `HuntArriveTolerance`) before resuming patrol, so ducking behind cover no
+  longer instantly ends the chase. Aggro additionally lingers for
+  `AggroLingerSeconds` after the target is lost.
 - **Contact damage with a windup.** Inside `contactRange`, the guardian warns
   nearby players (`HazardWarning` with `kind = "guardian"`), waits
   `attackWindup`, then re-checks the target is still in range before dealing

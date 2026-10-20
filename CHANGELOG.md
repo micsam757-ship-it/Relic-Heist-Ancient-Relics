@@ -27,14 +27,138 @@ major.minor.patch scheme while pre-1.0.
   and budget in `docs/PERFORMANCE.md`; run as a report step by `scripts/check.ps1`.
 - `docs/STUDIO_TEST_PLAN.md` — step-by-step Studio playtest sessions covering the
   currently unverified runtime paths, with prerequisites and a results log.
+- Expanding museum wings and building enhancements (ADR 0010): `GameConfig
+  .MuseumBuilding` declares three wings (Grand Foyer, Exhibition Hall, Secure
+  Vault) gated by the `MuseumFloor` level, five purchasable visual upgrades
+  (`MarblePillars`, `Lighting`, `GlassCases`, `VelvetRopes`, `Chandeliers`), and
+  per-rarity `PedestalTiers`. Pure layout/tier/enhancement rules live in
+  `src/shared/Domain/MuseumBuilder.luau`; `PlotBuilder` builds the rooms, fixtures,
+  and tiered pedestals. Schema v4 (`migrations[3]`) seeds the enhancement upgrade
+  keys. 11 new tests — 77 assertions total.
+- Endgame **Void Citadel** temple (`order` 4, difficulty 5, 8:00, unlock at 4
+  extractions + 5000 gold) with a `void` theme, four Citadel-exclusive **Abyssal**
+  relics (`VoidSigil`, `AbyssalCrown`, `StarlessIdol`, `EyeOfTheVoid`; all
+  Legendary/Mythic, top value 40,000), a new `VoidWarden` enemy kind, and a faster
+  `Rift Keeper` (ADR 0011).
+- **Instant Revive** Developer Product: on death inside a hard temple
+  (`Monetization.ReviveTempleIds`), the server offers a revive; purchasing within
+  the window restores the player in place with their relics. Config, server
+  offer/grant/`ProcessReceipt` path, `ExpeditionService` pending-revive flow, and a
+  client modal with Revive/Decline actions (ADR 0011, FR-028).
+- 6 new tests covering Void Citadel ordering/hardness/relic exclusivity, the Void
+  Warden stat gap, guardian chase tuning, and revive-temple config — 83 assertions
+  total; the contract-drift test now documents 12 actions.
+- **Unified world layout** (no more floating platforms): `GameConfig.World` holds
+  the shared layout constants (plot `RingRadius`/`StartAngleDegrees`/`MaxPlots`,
+  `GroundTop`, `Hub.PlazaRadius`, `AvenueWidth`), now read by `PlotService` so the
+  plot ring and the world builders share one source of truth. New
+  `GroundBuilder.luau` lays one solid stone ground plane beneath the hub, every
+  plot and every temple, and new `PathBuilder.luau` builds grand marble avenues
+  with inlay runners, balustrades and lantern posts from the hub to every museum
+  plot entrance and every temple portal. `WorldBuilder` composes ground → hub →
+  temples → avenues. 4 new world-layout tests — 87 assertions total at that point.
+
+### Fixed
+
+- Guardians never aggroed or chased. `GuardianService.hasLineOfSight` excluded
+  player characters but not the guardian's own model, whose `HumanoidRootPart` is
+  queryable; the eye-to-target ray could self-hit the guardian and fail the check
+  every tick, so a chase was never started. The ray now excludes the guardian's
+  model (mirroring `HazardService`, which already excluded the moving hazard).
 
 ### Changed
 
+- Guardian AI is sharper across every temple (FR-027, ADR 0011): `Enemies` gains a
+  longer `AggroLingerSeconds` (5s), a new `HuntSeconds` (4s) last-known-position
+  hunt so a chase survives broken line of sight/stealth, a tighter contact cooldown
+  (0.85s), a faster `Chase.SpeedMultiplier` (1.35), and a shorter tick (0.08s). The
+  base `Guardian` kind has a wider aggro range and shorter windup. `GuardianService`
+  now drives to the last-known position before resuming patrol.
 - `NetworkService` and `PlayerDataService` delegate their security-critical
   predicates to the pure modules above, so the same rules are exercised by tests
   and production. `PlayerDataService`'s load path now routes every failure through
   `Persist.loadOutcome`.
 - `docs/THREAT_MODEL.md` and the traceability matrix note the tested mitigations.
+- The museum plot is now a multi-room building. `PlotService.RING_RADIUS` grows to 680 studs so 12 large footprints do not overlap; a `MuseumFloor`,
+  `ExtraPedestal`, or enhancement purchase rebuilds the plot in place and
+  re-fires `PlotAssigned` so `MuseumService` re-homes displays and tiers. The
+  pedestal id scheme is unchanged (global 1-based, Foyer-first), and
+  `GameConfig.Museum.MaxPedestals` now replaces the hardcoded cap.
+- Plot models are rebuilt from scratch on every server start. `WorldBuilder.Build`
+  already destroys the previous `RelicHeistWorld` folder, and `PlotService:Start`
+  now also destroys any stray `MuseumPlots` folder left in `Workspace` (from an
+  older build or a place copy) before creating its own, so the latest multi-wing
+  geometry always replaces the old one with no stale or cached models.
+- Museum geometry is scaled up to feel monumental: each wing fits a 120 x 120
+  box (Foyer 120 x 120 x 56, Hall 100 x 70 x 52, Vault 88 x 60 x 52; the three
+  stack to ~280 studs deep, roughly 4x the old footprint and >2x the ceiling
+  height). Pedestals are spaced far apart in staggered alcoves, doorways are
+  framed with lintels, and the ground apron (160 x 330) plus a raised owner sign
+  were enlarged to match. Glass cases, velvet ropes, chandeliers, sconces, and
+  pillars were scaled proportionally. The plot ring grew to radius 680 and starts
+  at 105 degrees so plots clear the temple lane.
+- Museum presentation overhaul: walls are layered white marble (base wainscot +
+  crown molding) instead of brick; doorways are grand arches with flanking gate
+  columns and an accent keystone; floors are polished white marble with a subtle
+  border inlay and central runner; ceilings are coffered with warm recessed
+  `SpotLight` downlights. The winged halls now read as a grand, high-ceiling
+  white-marble gallery. Per-pedestal floating labels were replaced with a rounded
+  card (rarity accent bar + bold title + status line) mounted well above the relic
+  so names and states never overlap. Locked pedestals now wear a translucent glass
+  dome with a metal collar. Pedestals sit in widely spaced staggered alcoves across
+  each wing (`GameConfig.MuseumBuilding.Wings[*].pedestalSlots`) — the Foyer's six
+  plinths sit in two rows of three — so label cards and their interaction prompts
+  never crowd each other.
+- The hub's expedition portals are now a grand marble colonnade along the hub's
+  northern rim, on the same +Z axis as the temple avenue and flanking it
+  symmetrically; each arch is styled to its temple's signature accent color, and
+  the hub plaza, inlay and lantern pillars are white marble, matching the museum
+  and avenues.
+- The world is rescaled tighter for short, engaging walking distances while
+  keeping the grand marble aesthetic: the museum plot ring shrinks 680 -> 380
+  studs (still room for 12 non-overlapping plots), the temple corridor is pulled
+  in from z = 600/1000/1400/1800 to 300/540/820/1130 with even spacing, avenues
+  narrow 22 -> 16, the plot apron trims 160x330 -> 148x300, and the ground plane
+  shrinks 5600 -> 3600. `PathBuilder` now runs a single central approach avenue
+  from the hub to the temple district (instead of lateral lanes that clip halls)
+  and stops each plot avenue at the plot apron edge so bridges meet the buildings
+  with no unused gap.
+- **Building scale pass** to match the tightened 380-stud plot ring, making
+  interiors feel cosy and grand instead of empty:
+  - Museum wings shrink to a 90×90 footprint: Grand Foyer 120×120×56 →
+    **90×90×40**, Exhibition Hall 100×70×52 → **80×56×34**, Secure Vault
+    88×60×52 → **76×52×34**; wing offsets pull in to z = 81 / −79 so the three
+    rooms still stack with a slim 8-stud gap.
+  - Doors, wall thickness and pedestals rescale with the rooms: door width/height
+    now derive from room size and wall height (character-proportional),
+    wall thickness 2.4 → **2**, pedestal base 5.6 → **4.8** with top at y ≈ 6.5 and
+    the floating label lowered to y ≈ 11.2 (prompt/ProximityPrompt reach trimmed to
+    match), so plinths stay cleanly spaced with clear interaction prompts.
+  - Player base walk speed **16 → 19** (`GameConfig.Movement.BaseWalkSpeed`), so
+    crossing foyer → hub plaza → temple portal feels fast and fluid.
+  - The plot ground apron trims 148×300 → **120×260** and the owner sign/spawn move
+    onto the smaller Foyer facade (sign z=45, spawn z=60).
+  - `PathBuilder` plot avenues now stop 122 studs inside the ring so every marble
+    bridge meets the plot apron flush — no overhang past the plot and no dead gap.
+  - 1 new world-layout test asserts every wing fits the foyer footprint and the
+    three rooms stack without overlapping — 88 assertions total at that point.
+- **Human-scale architectural pass** — the museum was towering over the player,
+  so wall/ceiling heights, wall thickness, pillars, arches, fixtures and lights
+  all drop to character proportions:
+  - Interior ceiling heights `40/34/34 → 16/14/14` (Foyer/Hall/Vault);
+    outer walls, partitions and coffered ceilings follow the new heights.
+  - Wall thickness `2 → 1.5`; wainscot `3 → 1.6` and crown `1.6 → 0.7`, ceiling
+    slab `1 → 0.8`, beams `1.4×1.6 → 0.9×1.1`.
+  - Doorways now human-scale (width `~7-9`, height `~7-9`) and the flanking gate
+    columns/keystone shrink `2.4×3.2 → 1.4×1.8` / `4×3.2 → 2×1.6`.
+  - Colonnade pillars `4×4 → 2×2` (caps `5.2 → 2.6`); chandeliers, sconces and
+    recessed spotlights scale down (ranges/brightness trimmed) so the 14-stud
+    rooms read warmly lit and cosy rather than cavernous.
+  - Pedestal fixtures rescale to the smaller plinths: glass case `6.2×6.4 → 4.8×4.6`,
+    velvet ropes `4.4 → 3.4`, locked dome `8 → 6`.
+  - 1 new test asserts every wing ceiling is 14-16 studs — **89 assertions total**.
+- 1 new world-layout test asserts the pulled-in temple corridor halls never
+  overlap along +Z — **90 assertions total**.
 
 ## [0.6.0] - 2026-10-20
 

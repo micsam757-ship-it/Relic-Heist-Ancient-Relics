@@ -303,28 +303,37 @@ function Panels.Museum(body)
 			snapshot.exhibitedCount
 		)
 		clear(scroll)
-		for _, pedestal in snapshot.pedestals do
+
+		local function relicFor(uid)
+			if not uid then
+				return nil
+			end
+			for _, owned in snapshot.relics do
+				if owned.uid == uid then
+					return owned
+				end
+			end
+			return nil
+		end
+
+		local function pedestalRow(pedestal)
 			local row = Components.panel(scroll, {
 				Size = UDim2.new(1, 0, 0, 52),
 				Color = pedestal.unlocked and Theme.Color.PanelAlt or Theme.Color.Panel,
 				ClipsDescendants = true,
 			})
 			local occupied = pedestal.uid
-			local relic = occupied and nil
-			if occupied then
-				for _, owned in snapshot.relics do
-					if owned.uid == occupied then
-						relic = owned
-						break
-					end
-				end
+			local relic = relicFor(occupied)
+			local nameText = string.format("Pedestal %s", pedestal.id)
+			if pedestal.tier then
+				nameText = string.format("%s  •  %s", nameText, pedestal.tier)
 			end
 			Components.label(row, {
-				Text = string.format("Pedestal %s", pedestal.id),
+				Text = nameText,
 				Font = Theme.Font.Heading,
 				TextSize = 15,
 				TextColor = pedestal.unlocked and Theme.Color.Gold or Theme.Color.TextDim,
-				Size = UDim2.fromOffset(120, 1),
+				Size = UDim2.fromOffset(180, 1),
 				Position = UDim2.fromOffset(12, 0),
 				AlignY = Enum.TextYAlignment.Center,
 			})
@@ -333,8 +342,8 @@ function Panels.Museum(body)
 					or (relic and (relic.name .. "  •  " .. relic.rarity) or "Empty"),
 				TextSize = Theme.TextSize.Small,
 				TextColor = relic and Theme.Color.Text or Theme.Color.TextMuted,
-				Size = UDim2.new(1, -300, 1, 0),
-				Position = UDim2.fromOffset(132, 0),
+				Size = UDim2.new(1, -320, 1, 0),
+				Position = UDim2.fromOffset(200, 0),
 			})
 			if pedestal.unlocked and occupied then
 				Components.button(row, {
@@ -346,6 +355,37 @@ function Panels.Museum(body)
 						Net.send("RemoveRelic", { pedestalId = pedestal.id })
 					end,
 				})
+			end
+		end
+
+		-- Group pedestals by wing so the layout mirrors the physical building.
+		local wings = snapshot.wings or {}
+		local grouped = {}
+		for _, pedestal in snapshot.pedestals do
+			local key = pedestal.wingId or "Foyer"
+			grouped[key] = grouped[key] or {}
+			table.insert(grouped[key], pedestal)
+		end
+
+		for _, wing in wings do
+			local wingPedestals = grouped[wing.id]
+			if wingPedestals and #wingPedestals > 0 then
+				Components.label(scroll, {
+					Text = string.format("%s%s", wing.name, wing.unlocked and "" or "  (locked)"),
+					Font = Theme.Font.Heading,
+					TextSize = Theme.TextSize.Body,
+					TextColor = wing.unlocked and Theme.Color.Gold or Theme.Color.TextDim,
+					Size = UDim2.new(1, 0, 0, 24),
+				})
+				Components.label(scroll, {
+					Text = wing.description,
+					TextSize = Theme.TextSize.Small,
+					TextColor = Theme.Color.TextMuted,
+					Size = UDim2.new(1, 0, 0, 18),
+				})
+				for _, pedestal in wingPedestals do
+					pedestalRow(pedestal)
+				end
 			end
 		end
 	end

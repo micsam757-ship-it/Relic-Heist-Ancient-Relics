@@ -37,6 +37,8 @@ matches this table exactly, so the two cannot drift. Each handler validates its
 | `RemoveRelic` | `{ pedestalId }` | Near the pedestal |
 | `ClaimOfflineIncome` | - | Free 1x claim of `pendingOfflineGold` |
 | `PurchaseOfflineDouble` | - | Prompt the 199-Robux 2x Developer Product |
+| `PurchaseInstantRevive` | - | Prompt the Instant Revive Developer Product (only while the revive window is open) |
+| `DeclineInstantRevive` | - | Skip the revive and resolve the death immediately |
 
 ### `State` snapshot (client-facing)
 

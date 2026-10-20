@@ -10,13 +10,27 @@ textures, sounds, animations, or external assets in this repository.
 | --- | --- | --- |
 | Hub plaza, portals, kiosks | `HubBuilder` | `src/server/World/HubBuilder.luau` |
 | Temples, traps, altars, guardians | `TempleBuilder` | `src/server/World/TempleBuilder.luau` |
-| Museum plots, pedestals | `PlotBuilder` | `src/server/World/PlotBuilder.luau` |
+| Museum plots, wings, pedestals | `PlotBuilder` | `src/server/World/PlotBuilder.luau` |
 | Relic models (8 kinds) | `RelicVisuals` | `src/server/World/RelicVisuals.luau` |
 | Shared part helpers | `BuilderUtil` | `src/server/World/BuilderUtil.luau` |
 | Guardian rig blockout | `TempleBuilder.buildGuardian` | `src/server/World/TempleBuilder.luau` |
 
 Relic visual kinds: `scarab`, `ankh`, `idol`, `mask`, `urn`, `jackal`,
 `crystal`, `core`.
+
+Museum pedestal styling is data-driven per rarity (ADR 0010):
+`PlotBuilder.applyPedestalTier` re-materials the shared pedestal geometry from
+`GameConfig.MuseumBuilding.PedestalTiers` (column/top material, trim colour, and
+a glow light at Legendary/Mythic), so no per-tier models are needed. Wing rooms,
+pillars, sconces, glass cases, velvet ropes, and chandeliers are all procedural
+blockout fixtures built from the same theme data.
+
+The museum is finished blockout rather than a bare box: layered marble walls
+(wainscot + crown molding), arched doorways with gate columns and a keystone,
+polished marble floors with border inlay and runner, coffered ceilings with warm
+recessed `SpotLight` units, and per-pedestal floating label cards plus a translucent
+glass-dome locked indicator. All of it is still built from `Part`/GUI primitives
+and is replaceable with authored models without touching logic.
 
 ## Lighting
 

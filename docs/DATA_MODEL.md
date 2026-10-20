@@ -6,11 +6,11 @@
 - Key per player: `player_<UserId>`.
 - One record per player; written with `UpdateAsync`.
 
-## Profile schema (version 3)
+## Profile schema (version 4)
 
 ```lua
 {
-  schemaVersion = 3,
+  schemaVersion = 4,
   sessionId = "<guid>",        -- identifies the owning server session
   updatedAt = <unix seconds>,
   gold = 250,
@@ -19,7 +19,11 @@
   stats = { extractions = 0, deaths = 0, relicsCollected = 0, incomeClaimed = 0 },
   relics = { ["relic_<guid>"] = { id = "<DefinitionId>", acquiredAt = <unix> } },
   museum = { ["1"] = "relic_<guid>" },        -- pedestalId -> owned relic uid
-  upgrades = { SprintBoots = 0, Backpack = 0, Armor = 0, MuseumFloor = 0, ExtraPedestal = 0 },
+  upgrades = {
+    SprintBoots = 0, Backpack = 0, Armor = 0, MuseumFloor = 0, ExtraPedestal = 0,
+    -- visual museum-building enhancements (v4)
+    MarblePillars = 0, Lighting = 0, GlassCases = 0, VelvetRopes = 0, Chandeliers = 0,
+  },
   unlockedTemples = { TutorialRuins = true },
   lastIncomeClaimAt = <unix seconds>,
   pendingOfflineGold = 0,     -- offline payout held for the Welcome Back modal
@@ -60,8 +64,10 @@
 default shell without discarding existing fields. Version 1 records are upgraded
 to v2 by `migrations[1]` (seeds `pendingOfflineGold = 0`, `vip = false`). Version
 2 records are upgraded to v3 by `migrations[2]`, which adds the accessibility
-settings and `tutorialStep` while preserving any values already present. Records
-with a schema version newer than `CURRENT_VERSION` are rejected rather than
+settings and `tutorialStep` while preserving any values already present. Version
+3 records are upgraded to v4 by `migrations[3]`, which seeds the five museum
+building enhancement upgrade keys at 0 while preserving existing upgrade levels.
+Records with a schema version newer than `CURRENT_VERSION` are rejected rather than
 rewritten.
 
 ## Write policy
@@ -82,6 +88,10 @@ rewritten.
   exhibited relics' per-second rate and `lastIncomeClaimAt`, then stored in
   `pendingOfflineGold` until the Welcome Back modal resolves it (1x or 2x). See
   `docs/ADR/0006-auto-tick-income.md` and `docs/ADR/0007-monetization.md`.
+- Pending Instant Revive offers (`MonetizationService.revivePending`). A `ReviveOffer`
+  is an in-memory, per-session flag keyed by `UserId`; it is cleared on purchase,
+  decline, window expiry, or leave. Nothing about a revive is persisted, so no
+  schema change was needed. See `docs/ADR/0011-endgame-temple-and-revive.md`.
 
 ## Failure-mode matrix
 

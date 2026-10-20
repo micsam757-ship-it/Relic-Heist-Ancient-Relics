@@ -71,6 +71,10 @@ Net.onEvent(function(packet)
 		UIRoot.showWelcomeBack(data)
 	elseif name == "WelcomeBackClosed" then
 		UIRoot.closeWelcomeBack()
+	elseif name == "ReviveOffer" then
+		UIRoot.showRevivePrompt(data)
+	elseif name == "ReviveClosed" then
+		UIRoot.closeRevivePrompt()
 	end
 end)
 

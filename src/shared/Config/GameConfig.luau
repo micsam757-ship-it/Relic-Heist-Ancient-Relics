@@ -10,6 +10,28 @@ GameConfig.Game = {
 	Version = "0.1.0",
 }
 
+-- World layout: shared geometry constants used by the hub, museum plot ring and
+-- the connecting avenues so the hub, plots and temples stay physically linked.
+GameConfig.World = {
+	-- Museum plot ring. Plots are placed at `startAngle + n * angleStep` on a
+	-- circle of `ringRadius` around the hub. The ring is offset from the +Z
+	-- temple lane so no plot overlaps a temple avenue. The radius is kept just
+	-- large enough for 12 plot footprints to sit with a comfortable (not
+	-- sprawling) gap, so walking from the hub to any plot stays short.
+	RingRadius = 380,
+	StartAngleDegrees = 105,
+	MaxPlots = 12,
+	-- Ground top height; hub plaza, avenues, plots and temples all sit on it.
+	GroundTop = 0,
+	Hub = {
+		PlazaRadius = 87,
+		PlazaTop = 0,
+	},
+	-- Width of the grand connecting avenues (hub <-> plots and hub <-> temples).
+	AvenueWidth = 16,
+	AvenueTop = 0,
+}
+
 GameConfig.Save = {
 	SchemaVersion = 1,
 	DataStoreName = "RelicHeistProfiles",
@@ -36,12 +58,12 @@ GameConfig.Economy = {
 }
 
 GameConfig.Movement = {
-	BaseWalkSpeed = 16,
+	BaseWalkSpeed = 19,
 	MinSpeedMultiplier = 0.35,
 	WeightPenaltyPerUnit = 0.008,
 	BaseCapacity = 40,
 	BackpackCapacityPerLevel = 20,
-	BasePedestals = 4,
+	BasePedestals = 6,
 	BaseMaxHealth = 100,
 	ArmorHealthPerLevel = 20,
 }
@@ -49,6 +71,127 @@ GameConfig.Movement = {
 GameConfig.Museum = {
 	IncomePerMinuteFloorBonus = 0.05,
 	MaxIncomeRatePerMinute = 5000,
+	MaxPedestals = 14,
+}
+
+-- Museum footprint: distinct, expanding wings. A wing is a physical room added
+-- to the player's plot, holding a fixed set of pedestals. `unlockLevel` gates a
+-- wing behind the Museum Expansion upgrade level; the Foyer (level 0) always
+-- exists. Pedestal ids are global indices assigned Foyer-first so the existing
+-- pedestal-count unlock logic is preserved. Offsets are plot-local (studs),
+-- outward from the plot origin; `size` is the interior clear footprint.
+GameConfig.MuseumBuilding = {
+	Wings = {
+		{
+			id = "Foyer",
+			name = "Grand Foyer",
+			description = "A soaring entrance hall. Plinths line the grand walkway.",
+			unlockLevel = 0,
+			offset = { x = 0, z = 0 },
+			size = { x = 90, z = 90 },
+			height = 16,
+			theme = "entry",
+			-- Six plinths in two rows of three, well spaced so the floating label
+			-- cards (and their ProximityPrompts) never crowd each other.
+			pedestalSlots = {
+				{ x = -30, z = -28, facing = 180 },
+				{ x = 0, z = -28, facing = 180 },
+				{ x = 30, z = -28, facing = 180 },
+				{ x = -30, z = 30, facing = 180 },
+				{ x = 0, z = 30, facing = 180 },
+				{ x = 30, z = 30, facing = 180 },
+			},
+		},
+		{
+			id = "ExhibitionHall",
+			name = "Exhibition Hall",
+			description = "A vast gallery of glass cases and velvet ropes, brooding over a long central corridor.",
+			unlockLevel = 1,
+			offset = { x = 0, z = 81 },
+			size = { x = 80, z = 56 },
+			height = 14,
+			theme = "gallery",
+			-- Four displays in two rows of two, clear of the central corridor.
+			pedestalSlots = {
+				{ x = -22, z = -14, facing = 0 },
+				{ x = 22, z = -14, facing = 0 },
+				{ x = -22, z = 14, facing = 0 },
+				{ x = 22, z = 14, facing = 0 },
+			},
+		},
+		{
+			id = "Vault",
+			name = "Secure Vault",
+			description = "A cavernous vault where the most valuable relics rest in shadow.",
+			unlockLevel = 2,
+			offset = { x = 0, z = -79 },
+			size = { x = 76, z = 52 },
+			height = 14,
+			theme = "vault",
+			pedestalSlots = {
+				{ x = -20, z = -12, facing = 0 },
+				{ x = 20, z = -12, facing = 0 },
+				{ x = -20, z = 12, facing = 0 },
+				{ x = 20, z = 12, facing = 0 },
+			},
+		},
+	},
+	-- Purchasable visual enhancements, keyed by the fixture feature the plot
+	-- builder switches on. Each value is the id of an entry in
+	-- `GameConfig.Upgrades`, so these are bought through the ordinary upgrade
+	-- pipeline and share its price growth, schema storage, and refresh signal.
+	Enhancements = {
+		pillars = "MarblePillars",
+		lighting = "Lighting",
+		glassCases = "GlassCases",
+		velvetRopes = "VelvetRopes",
+		chandeliers = "Chandeliers",
+	},
+	-- Per-rarity pedestal styling. `rank` is the rarity's numeric rank
+	-- (GameConfig.Rarities[*].rank). Higher tiers get richer material, trim,
+	-- glow, and a small matching light. `tier` is the label shown in the UI.
+	PedestalTiers = {
+		Common = {
+			tier = "Stone",
+			rank = 1,
+			columnMaterial = "Slate",
+			topMaterial = "Marble",
+			trim = { 176, 154, 112 },
+			glow = false,
+			lightRange = 0,
+			lightBrightness = 0,
+		},
+		Rare = {
+			tier = "Polished",
+			rank = 2,
+			columnMaterial = "Marble",
+			topMaterial = "Marble",
+			trim = { 96, 170, 214 },
+			glow = false,
+			lightRange = 0,
+			lightBrightness = 0,
+		},
+		Legendary = {
+			tier = "Gilded",
+			rank = 3,
+			columnMaterial = "Marble",
+			topMaterial = "Metal",
+			trim = { 235, 178, 70 },
+			glow = true,
+			lightRange = 8,
+			lightBrightness = 1.2,
+		},
+		Mythic = {
+			tier = "Mythic",
+			rank = 4,
+			columnMaterial = "Granite",
+			topMaterial = "Neon",
+			trim = { 196, 92, 224 },
+			glow = true,
+			lightRange = 12,
+			lightBrightness = 2,
+		},
+	},
 }
 
 GameConfig.Rarities = {
@@ -199,6 +342,49 @@ GameConfig.Relics = {
 		templeIds = { "SunkenSanctum" },
 		visual = { kind = "idol", primary = { 64, 180, 190 }, secondary = { 20, 80, 90 }, glow = true },
 	},
+	-- Void Citadel (endgame) relics. These are the top of the progression curve:
+	-- every one is Legendary or Mythic, heavy, and worth far more than the
+	-- Sunken Sanctum haul, so a successful run is the largest single payout.
+	VoidSigil = {
+		name = "Void Sigil",
+		description = "A black disc that swallows light. The Citadel's wards answer to it.",
+		rarity = "Legendary",
+		weight = 42,
+		value = 4200,
+		incomePerMinute = 120,
+		templeIds = { "VoidCitadel" },
+		visual = { kind = "crystal", primary = { 150, 96, 224 }, secondary = { 36, 20, 64 }, glow = true },
+	},
+	AbyssalCrown = {
+		name = "Abyssal Crown",
+		description = "A circlet of pressure-warped gold recovered from the void beyond the sanctum.",
+		rarity = "Legendary",
+		weight = 48,
+		value = 5200,
+		incomePerMinute = 150,
+		templeIds = { "VoidCitadel" },
+		visual = { kind = "mask", primary = { 190, 150, 70 }, secondary = { 60, 30, 90 }, glow = true },
+	},
+	StarlessIdol = {
+		name = "Starless Idol",
+		description = "An idol carved in a shape the eye refuses to hold. It is always cold.",
+		rarity = "Mythic",
+		weight = 72,
+		value = 20000,
+		incomePerMinute = 380,
+		templeIds = { "VoidCitadel" },
+		visual = { kind = "idol", primary = { 46, 40, 66 }, secondary = { 128, 64, 200 }, glow = true },
+	},
+	EyeOfTheVoid = {
+		name = "Eye of the Void",
+		description = "The Citadel's crown jewel. The endgame prize of the entire collection.",
+		rarity = "Mythic",
+		weight = 88,
+		value = 40000,
+		incomePerMinute = 700,
+		templeIds = { "VoidCitadel" },
+		visual = { kind = "core", primary = { 200, 80, 240 }, secondary = { 40, 10, 70 }, glow = true },
+	},
 }
 
 GameConfig.Upgrades = {
@@ -234,13 +420,13 @@ GameConfig.Upgrades = {
 	},
 	MuseumFloor = {
 		name = "Museum Expansion",
-		description = "Expands the exhibition floor, unlocking two pedestals per level.",
+		description = "Expands the exhibition floor, unlocking three pedestals per level.",
 		maxLevel = 2,
 		basePrice = 800,
 		priceGrowth = 2.1,
 		order = 4,
 		effect = "pedestalsPerLevel",
-		perLevel = 2,
+		perLevel = 3,
 	},
 	ExtraPedestal = {
 		name = "Extra Pedestal",
@@ -250,6 +436,59 @@ GameConfig.Upgrades = {
 		priceGrowth = 2.1,
 		order = 5,
 		effect = "pedestalsPerLevel",
+		perLevel = 1,
+	},
+	-- Museum building enhancements. `effect = "visual"`; these do not change
+	-- gameplay numbers, only the fixtures the plot builder renders. They are
+	-- bought through the same UpgradeService pipeline as every other upgrade.
+	MarblePillars = {
+		name = "Marble Colonnade",
+		description = "Adds carved marble pillars to every wing.",
+		maxLevel = 3,
+		basePrice = 400,
+		priceGrowth = 1.9,
+		order = 6,
+		effect = "visual",
+		perLevel = 1,
+	},
+	Lighting = {
+		name = "Gallery Lighting",
+		description = "Sconces and spotlights brighten the exhibits.",
+		maxLevel = 3,
+		basePrice = 500,
+		priceGrowth = 1.9,
+		order = 7,
+		effect = "visual",
+		perLevel = 1,
+	},
+	GlassCases = {
+		name = "Glass Display Cases",
+		description = "Encases each relic behind polished glass.",
+		maxLevel = 2,
+		basePrice = 700,
+		priceGrowth = 2.0,
+		order = 8,
+		effect = "visual",
+		perLevel = 1,
+	},
+	VelvetRopes = {
+		name = "Velvet Ropes",
+		description = "Cordons every exhibit with velvet ropes on brass posts.",
+		maxLevel = 2,
+		basePrice = 650,
+		priceGrowth = 2.0,
+		order = 9,
+		effect = "visual",
+		perLevel = 1,
+	},
+	Chandeliers = {
+		name = "Crystal Chandeliers",
+		description = "Suspends crystal chandeliers from the ceiling of each wing.",
+		maxLevel = 2,
+		basePrice = 900,
+		priceGrowth = 2.1,
+		order = 10,
+		effect = "visual",
 		perLevel = 1,
 	},
 }
@@ -265,7 +504,7 @@ GameConfig.Temples = {
 		durationSeconds = 300,
 		requiredRelics = 1,
 		theme = "sandstone",
-		origin = { x = 0, y = 0, z = 600 },
+		origin = { x = 0, y = 0, z = 300 },
 		hall = { width = 56, length = 150, height = 28 },
 		spawnOffset = { x = 0, y = 4, z = 16 },
 		extractionOffset = { x = 0, y = 4, z = 6 },
@@ -316,7 +555,7 @@ GameConfig.Temples = {
 		durationSeconds = 360,
 		requiredRelics = 2,
 		theme = "catacomb",
-		origin = { x = 0, y = 0, z = 1000 },
+		origin = { x = 0, y = 0, z = 540 },
 		hall = { width = 64, length = 190, height = 26 },
 		spawnOffset = { x = 0, y = 4, z = 18 },
 		extractionOffset = { x = 0, y = 4, z = 6 },
@@ -390,7 +629,7 @@ GameConfig.Temples = {
 		durationSeconds = 420,
 		requiredRelics = 3,
 		theme = "sanctum",
-		origin = { x = 0, y = 0, z = 1400 },
+		origin = { x = 0, y = 0, z = 820 },
 		hall = { width = 72, length = 220, height = 30 },
 		spawnOffset = { x = 0, y = 4, z = 18 },
 		extractionOffset = { x = 0, y = 4, z = 6 },
@@ -477,6 +716,111 @@ GameConfig.Temples = {
 			},
 		},
 	},
+	VoidCitadel = {
+		name = "Void Citadel",
+		description = "The endgame. A collapsed star-temple crawling with Void Wardens. Only the very best leave alive.",
+		difficulty = 5,
+		order = 4,
+		minExtractions = 4,
+		unlockPrice = 5000,
+		durationSeconds = 480,
+		requiredRelics = 4,
+		theme = "void",
+		origin = { x = 0, y = 0, z = 1130 },
+		hall = { width = 84, length = 260, height = 34 },
+		spawnOffset = { x = 0, y = 4, z = 18 },
+		extractionOffset = { x = 0, y = 4, z = 6 },
+		portalOffset = { x = 0, y = 0, z = 70 },
+		relicSpawns = {
+			{ definitionId = "VoidSigil", position = { x = -24, y = 4, z = 54 } },
+			{ definitionId = "AbyssalCrown", position = { x = 24, y = 4, z = 100 } },
+			{ definitionId = "StarlessIdol", position = { x = -22, y = 4, z = 170 } },
+			{ definitionId = "EyeOfTheVoid", position = { x = 0, y = 4, z = 244 } },
+		},
+		obstacles = {
+			{ position = { x = -16, y = 3, z = 74 }, size = { x = 14, y = 6, z = 10 } },
+			{ position = { x = 16, y = 3, z = 128 }, size = { x = 16, y = 6, z = 8 } },
+			{ position = { x = -16, y = 3, z = 196 }, size = { x = 14, y = 6, z = 10 } },
+			{ position = { x = 14, y = 3, z = 224 }, size = { x = 12, y = 6, z = 8 } },
+		},
+		traps = {
+			{
+				kind = "dart",
+				label = "Void Dart",
+				position = { x = 0, y = 8, z = 78 },
+				zone = { x = 78, y = 12, z = 8 },
+				interval = 3.2,
+				warning = 0.9,
+				active = 0.55,
+				damage = 24,
+			},
+			{
+				kind = "blade",
+				label = "Rift Blade",
+				position = { x = 0, y = 4, z = 132 },
+				length = 34,
+				speed = 2.2,
+				hitRadius = 3.6,
+				damage = 38,
+			},
+			{
+				kind = "dart",
+				label = "Void Dart",
+				position = { x = 0, y = 8, z = 188 },
+				zone = { x = 78, y = 12, z = 8 },
+				interval = 3.0,
+				warning = 0.8,
+				active = 0.55,
+				damage = 24,
+			},
+			{
+				kind = "boulder",
+				label = "Collapsing Star",
+				startOffset = { x = 0, y = 6, z = 250 },
+				endOffset = { x = 0, y = 6, z = 40 },
+				radius = 8,
+				interval = 7.5,
+				warning = 1.7,
+				travel = 5.2,
+				damage = 60,
+			},
+		},
+		guardians = {
+			{
+				kind = "VoidWarden",
+				label = "Void Warden",
+				waypoints = {
+					{ x = -22, y = 3, z = 80 },
+					{ x = -22, y = 3, z = 210 },
+					{ x = 22, y = 3, z = 210 },
+					{ x = 22, y = 3, z = 80 },
+				},
+			},
+			{
+				kind = "VoidWarden",
+				label = "Void Warden",
+				waypoints = {
+					{ x = 0, y = 3, z = 150 },
+					{ x = -28, y = 3, z = 240 },
+					{ x = 28, y = 3, z = 240 },
+					{ x = 0, y = 3, z = 150 },
+				},
+			},
+			{
+				kind = "VoidWarden",
+				label = "Rift Keeper",
+				walkSpeed = 19,
+				damage = 36,
+				aggroRange = 70,
+				bodyColor = { 44, 36, 68 },
+				eyeColor = { 210, 96, 255 },
+				waypoints = {
+					{ x = 0, y = 3, z = 60 },
+					{ x = 0, y = 3, z = 250 },
+				},
+			},
+		},
+	},
 }
 
 GameConfig.Hazards = {
@@ -488,22 +832,36 @@ GameConfig.Hazards = {
 -- Guardian enemies (see docs/ADR/0008-guardian-enemies.md). Shared tuning
 -- lives here; each temple lists its own guardians. Guardians patrol a route,
 -- chase a player they can see within `AggroRange`, and deal contact damage.
+--
+-- This block was sharpened to drive progression and monetization: guardians
+-- detect faster, hold a chase longer once they have seen a player (see
+-- `AggroLingerSeconds`), pursue to a player's last-known position when sight is
+-- broken (see `HuntSeconds`), and strike more often. Stealth is a narrower
+-- margin than it used to be.
 GameConfig.Enemies = {
-	TickSeconds = 0.1,
+	TickSeconds = 0.08,
 	-- How long an aggroed guardian keeps pursuing after losing sight.
-	AggroLingerSeconds = 2.5,
+	AggroLingerSeconds = 5,
+	-- How long a guardian keeps hunting toward a target's last-known position
+	-- after line of sight (or stealth) is broken. During this window the chase
+	-- state stays active, so ducking behind cover no longer instantly ends it.
+	HuntSeconds = 4,
+	-- How close the guardian must get to a last-known position to consider the
+	-- hunt satisfied and resume its patrol.
+	HuntArriveTolerance = 5,
 	-- Extra distance beyond `AggroRange` before a chase is dropped.
-	DeaggroPadding = 6,
+	DeaggroPadding = 4,
 	-- A guardian pauses this long after landing a hit before it can hit again.
-	ContactCooldownSeconds = 1.1,
+	ContactCooldownSeconds = 0.85,
 	-- Movement speed while patrolling vs. chasing, as a multiplier of the
-	-- guardian's configured walk speed.
+	-- guardian's configured walk speed. Chasing guardians move faster now.
 	Patrol = {
 		WaypointTolerance = 4,
 		RepathSeconds = 0.35,
 	},
 	Chase = {
-		RepathSeconds = 0.2,
+		RepathSeconds = 0.12,
+		SpeedMultiplier = 1.35,
 	},
 	-- Visual telegraph flashed to nearby players when a guardian first aggros.
 	WarnColor = { 255, 96, 80 },
@@ -515,12 +873,27 @@ GameConfig.Enemies.Kinds = {
 		name = "Stone Guardian",
 		health = 1000,
 		walkSpeed = 12,
-		damage = 22,
-		aggroRange = 46,
+		damage = 24,
+		aggroRange = 54,
+		-- Narrower than before: a guardian notices a player at a wider radius
+		-- and strikes once it is nearly on top of them.
 		contactRange = 7,
-		attackWindup = 0.45,
+		attackWindup = 0.4,
 		bodyColor = { 96, 88, 76 },
 		eyeColor = { 255, 96, 80 },
+	},
+	-- Endgame guardian for the Void Citadel. Faster, wider aggro, harder hits,
+	-- and a shorter windup, so a caught player must react immediately.
+	VoidWarden = {
+		name = "Void Warden",
+		health = 1500,
+		walkSpeed = 17,
+		damage = 32,
+		aggroRange = 64,
+		contactRange = 8,
+		attackWindup = 0.35,
+		bodyColor = { 44, 36, 68 },
+		eyeColor = { 210, 96, 255 },
 	},
 }
 
@@ -545,6 +918,18 @@ GameConfig.Monetization = {
 	OfflineDoubleMultiplier = 2,
 	VipPassId = 0,
 	VipName = "VIP Pass",
+	-- Instant Revive: a one-shot Developer Product offered when a player is
+	-- downed inside a hard temple. Buying it revives the player in place and
+	-- keeps their carried relics; ignoring it resolves the death normally.
+	-- ID 0 = not configured (the prompt is suppressed and deaths resolve).
+	InstantReviveProductId = 0,
+	InstantRevivePriceRobux = 99,
+	-- How long the on-death revive prompt stays open before the death resolves
+	-- on its own. Kept short so it never becomes a free pause.
+	InstantReviveWindowSeconds = 12,
+	-- Temples that can offer the revive prompt. Void Citadel and Sunken Sanctum
+	-- are the "hard temples" named in the design brief.
+	ReviveTempleIds = { "SunkenSanctum", "VoidCitadel" },
 }
 
 -- Accessibility and feedback settings (see docs/HCI_DESIGN.md). `defaults` seeds

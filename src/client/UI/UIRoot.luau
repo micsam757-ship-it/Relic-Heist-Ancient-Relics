@@ -612,6 +612,116 @@ function UIRoot.closeWelcomeBack()
 	welcomeBackOpen = false
 end
 
+-- Instant Revive prompt. Shown on death inside a hard temple; the client only
+-- sends requests. The server grants the revive in ProcessReceipt, so a purchase
+-- that never completes leaves the player dead.
+function UIRoot.showRevivePrompt(payload)
+	if refs.summaryHost == nil then
+		return
+	end
+	if refs.summaryHost:FindFirstChild("ReviveBackdrop") then
+		return
+	end
+
+	local backdrop = Instance.new("TextButton")
+	backdrop.Name = "ReviveBackdrop"
+	backdrop.Size = UDim2.fromScale(1, 1)
+	backdrop.BackgroundColor3 = Theme.Color.Scrim
+	backdrop.BackgroundTransparency = 0.35
+	backdrop.Text = ""
+	backdrop.AutoButtonColor = false
+	backdrop.ZIndex = 36
+	backdrop.Parent = refs.summaryHost
+
+	local card = Components.panel(backdrop, {
+		Name = "ReviveCard",
+		Size = UDim2.fromOffset(500, 320),
+		Position = UDim2.fromScale(0.5, 0.5),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Color = Theme.Color.Panel,
+		Radius = Theme.Radius.Large,
+		StrokeColor = Theme.Color.Danger,
+		ClipsDescendants = true,
+	})
+	card.ZIndex = 37
+
+	Components.label(card, {
+		Text = "You Have Fallen",
+		Font = Theme.Font.Title,
+		TextSize = Theme.TextSize.Title,
+		TextColor = Theme.Color.Danger,
+		Size = UDim2.new(1, -24, 0, 44),
+		Position = UDim2.fromOffset(20, 18),
+		AlignX = Enum.TextXAlignment.Center,
+	})
+	Components.label(card, {
+		Text = "Revive instantly and keep every relic you're carrying.",
+		Font = Theme.Font.Body,
+		TextSize = Theme.TextSize.Body,
+		TextColor = Theme.Color.TextMuted,
+		Size = UDim2.new(1, -24, 0, 26),
+		Position = UDim2.fromOffset(20, 62),
+		AlignX = Enum.TextXAlignment.Center,
+	})
+
+	local window = tonumber(payload.windowSeconds) or 0
+	local countdownLabel = Components.label(card, {
+		Name = "Countdown",
+		Text = string.format("%d", math.floor(window)),
+		Font = Theme.Font.Title,
+		TextSize = Theme.TextSize.Title,
+		TextColor = Theme.Color.Gold,
+		Size = UDim2.new(1, -24, 0, 44),
+		Position = UDim2.fromOffset(20, 96),
+		AlignX = Enum.TextXAlignment.Center,
+	})
+
+	Components.button(card, {
+		Name = "Revive",
+		Text = string.format("Revive Now  (%d Robux)", tonumber(payload.priceRobux) or 0),
+		Size = UDim2.new(1, -40, 0, 48),
+		Position = UDim2.new(0, 20, 1, -124),
+		Color = Theme.Color.Gold,
+		TextColor = Theme.Color.Background,
+		OnClick = function()
+			Net.send("PurchaseInstantRevive")
+		end,
+	})
+	Components.button(card, {
+		Name = "Decline",
+		Text = "Let me perish",
+		Size = UDim2.new(1, -40, 0, 40),
+		Position = UDim2.new(0, 20, 1, -68),
+		Color = Theme.Color.DangerDeep,
+		OnClick = function()
+			Net.send("DeclineInstantRevive")
+		end,
+	})
+
+	-- Local countdown purely for feel; the server enforces the real window.
+	if window > 0 then
+		task.spawn(function()
+			local remaining = window
+			while remaining > 0 and backdrop.Parent do
+				task.wait(1)
+				remaining -= 1
+				if countdownLabel.Parent then
+					countdownLabel.Text = tostring(math.max(0, remaining))
+				end
+			end
+		end)
+	end
+end
+
+function UIRoot.closeRevivePrompt()
+	if refs.summaryHost then
+		local existing = refs.summaryHost:FindFirstChild("ReviveBackdrop")
+		if existing then
+			existing:Destroy()
+		end
+	end
+end
+
 function UIRoot.showSummary(payload)
 	local backdrop = Instance.new("TextButton")
 	backdrop.Name = "SummaryBackdrop"

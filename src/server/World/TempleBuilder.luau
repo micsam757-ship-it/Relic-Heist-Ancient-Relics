@@ -43,10 +43,28 @@ local THEMES: { [string]: any } = {
 		light = Color3.fromRGB(140, 232, 240),
 		ceiling = true,
 	},
+	void = {
+		floor = Color3.fromRGB(30, 26, 42),
+		floorMaterial = Enum.Material.Basalt,
+		wall = Color3.fromRGB(38, 32, 54),
+		wallMaterial = Enum.Material.Slate,
+		pillar = Color3.fromRGB(54, 42, 82),
+		pillarMaterial = Enum.Material.Marble,
+		accent = Color3.fromRGB(200, 96, 240),
+		light = Color3.fromRGB(190, 120, 255),
+		ceiling = true,
+	},
 }
 
 local function offsetToWorld(origin: Vector3, offset: any): Vector3
 	return origin + Vector3.new(offset.x or 0, offset.y or 0, offset.z or 0)
+end
+
+-- Signature accent color for a temple theme, so the hub can style each portal
+-- arch to match the temple it leads to without duplicating the palette.
+function TempleBuilder.themeAccent(themeName: string): Color3
+	local theme = THEMES[themeName] or THEMES.sandstone
+	return theme.accent
 end
 
 local function buildTorches(folder: Instance, origin: Vector3, hall: any, theme: any)

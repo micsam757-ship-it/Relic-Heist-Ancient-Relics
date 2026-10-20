@@ -3,7 +3,7 @@
 
 local Schema = {}
 
-Schema.CURRENT_VERSION = 3
+Schema.CURRENT_VERSION = 4
 
 export type Profile = {
 	schemaVersion: number,
@@ -62,6 +62,11 @@ function Schema.createDefault(now: number, sessionId: string, startingGold: numb
 			Armor = 0,
 			MuseumFloor = 0,
 			ExtraPedestal = 0,
+			MarblePillars = 0,
+			Lighting = 0,
+			GlassCases = 0,
+			VelvetRopes = 0,
+			Chandeliers = 0,
 		},
 		unlockedTemples = { TutorialRuins = true },
 		lastIncomeClaimAt = now,
@@ -106,6 +111,22 @@ migrations[2] = function(profile, _now)
 	end
 	if profile.tutorialStep == nil then
 		profile.tutorialStep = 0
+	end
+	return profile
+end
+
+migrations[3] = function(profile, _now)
+	-- v4 adds the museum building enhancements. Existing profiles keep their
+	-- current upgrades; only the new visual-enhancement keys are seeded to 0.
+	local upgrades: any = profile.upgrades
+	if type(upgrades) ~= "table" then
+		upgrades = {}
+		profile.upgrades = upgrades
+	end
+	for _, id in { "MarblePillars", "Lighting", "GlassCases", "VelvetRopes", "Chandeliers" } do
+		if upgrades[id] == nil then
+			upgrades[id] = 0
+		end
 	end
 	return profile
 end

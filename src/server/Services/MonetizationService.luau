@@ -29,6 +29,10 @@ local state = {
 	-- Set when a receipt arrives before the player has pending income to
 	-- release, so the multiplier is honored on the next claim instead.
 	doubleTokens = {},
+	-- Players whose Instant Revive purchase arrived after their revive window
+	-- already closed (or who already resolved). Prevents a late receipt from
+	-- reviving a player who is no longer downed.
+	revivePending = {},
 }
 
 local function isConfigured(id): boolean
@@ -121,6 +125,76 @@ function MonetizationService:PromptDouble(player: Player)
 	return true, nil
 end
 
+-- True when a downed player in `templeId` is eligible for the Instant Revive
+-- offer: the product is configured and the temple is on the hard-temple list.
+function MonetizationService:CanOfferRevive(_player: Player, templeId: string): boolean
+	if isConfigured(GameConfig.Monetization.InstantReviveProductId) == false then
+		return false
+	end
+	local allowed = GameConfig.Monetization.ReviveTempleIds or {}
+	for _, id in allowed do
+		if id == templeId then
+			return true
+		end
+	end
+	return false
+end
+
+-- Called by ExpeditionService when a player dies in a hard temple. Pushes the
+-- revive offer to the client and marks the player as revivable until either the
+-- purchase arrives or the window closes. Returns the window length in seconds.
+function MonetizationService:OfferRevive(player: Player, templeId: string): number
+	state.revivePending[player.UserId] = templeId
+	state.ctx.Services.Network:PushEvent(player, "ReviveOffer", {
+		templeId = templeId,
+		priceRobux = GameConfig.Monetization.InstantRevivePriceRobux,
+		windowSeconds = GameConfig.Monetization.InstantReviveWindowSeconds,
+	})
+	state.ctx.Services.Analytics:Track("revive_offer_shown", { temple = templeId })
+	return GameConfig.Monetization.InstantReviveWindowSeconds
+end
+
+-- Called by ExpeditionService when the revive window closes without a purchase.
+function MonetizationService:ClearReviveOffer(player: Player)
+	state.revivePending[player.UserId] = nil
+end
+
+function MonetizationService:IsRevivePending(player: Player): boolean
+	return state.revivePending[player.UserId] ~= nil
+end
+
+-- The player tapped "Revive" in the client prompt: open the Roblox purchase
+-- dialog. The actual revive is granted in ProcessReceipt, never from the client.
+function MonetizationService:PromptRevive(player: Player)
+	if not MonetizationService:IsRevivePending(player) then
+		return false, "The revive window has closed."
+	end
+	local productId = GameConfig.Monetization.InstantReviveProductId
+	if not isConfigured(productId) then
+		return false, "This offer is not available yet."
+	end
+	MarketplaceService:PromptProductPurchase(player, productId)
+	return true, nil
+end
+
+-- Applied from ProcessReceipt: revive the player in the ExpeditionService and
+-- close the offer. Only revives if the offer is still pending.
+local function grantRevive(player: Player)
+	local templeId = state.revivePending[player.UserId]
+	if templeId == nil then
+		return false
+	end
+	state.revivePending[player.UserId] = nil
+	local revived = state.ctx.Services.Expedition:RevivePlayer(player)
+	if not revived then
+		-- The player already resolved or left the temple; do not charge.
+		return false
+	end
+	state.ctx.Services.Network:PushEvent(player, "ReviveClosed", { success = true })
+	state.ctx.Services.Network:Toast(player, "success", "Revived! Your relics are safe.")
+	return true
+end
+
 function MonetizationService:InitReceiptHandler()
 	MarketplaceService.ProcessReceipt = function(receiptInfo)
 		local productId = receiptInfo.ProductId
@@ -143,6 +217,25 @@ function MonetizationService:InitReceiptHandler()
 			return Enum.ProductPurchaseDecision.PurchaseGranted
 		end
 
+		if
+			isConfigured(GameConfig.Monetization.InstantReviveProductId)
+			and productId == GameConfig.Monetization.InstantReviveProductId
+		then
+			local ok, granted = pcall(grantRevive, player)
+			if not ok then
+				state.logger:error("Failed to grant revive for %s: %s", player.Name, tostring(granted))
+				return Enum.ProductPurchaseDecision.NotProcessedYet
+			end
+			if granted then
+				state.ctx.Services.Analytics:Track("product_purchased", { product = "instant_revive" })
+				return Enum.ProductPurchaseDecision.PurchaseGranted
+			end
+			-- No pending offer: the window closed before the receipt arrived.
+			-- Do not grant; leave it unprocessed so Roblox can retry if the
+			-- player is legitimately downed again.
+			return Enum.ProductPurchaseDecision.NotProcessedYet
+		end
+
 		state.logger:warn("Unknown Developer Product %s from %s", tostring(productId), player.Name)
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
@@ -163,6 +256,7 @@ function MonetizationService:Start()
 	Players.PlayerRemoving:Connect(function(player)
 		state.vipCache[player.UserId] = nil
 		state.doubleTokens[player.UserId] = nil
+		state.revivePending[player.UserId] = nil
 	end)
 
 	state.ctx.Services.Network:RegisterAction("ClaimOfflineIncome", function(player)
@@ -171,6 +265,22 @@ function MonetizationService:Start()
 
 	state.ctx.Services.Network:RegisterAction("PurchaseOfflineDouble", function(player)
 		return MonetizationService:PromptDouble(player)
+	end, { perSecond = 2, burst = 4 })
+
+	state.ctx.Services.Network:RegisterAction("PurchaseInstantRevive", function(player)
+		return MonetizationService:PromptRevive(player)
+	end, { perSecond = 2, burst = 4 })
+
+	state.ctx.Services.Network:RegisterAction("DeclineInstantRevive", function(player)
+		-- The player chose to let the death resolve. Resolve it now instead of
+		-- waiting out the window.
+		if not MonetizationService:IsRevivePending(player) then
+			return false, "The revive window has closed."
+		end
+		MonetizationService:ClearReviveOffer(player)
+		state.ctx.Services.Expedition:ResolveDeath(player)
+		state.ctx.Services.Network:PushEvent(player, "ReviveClosed", { success = false })
+		return true
 	end, { perSecond = 2, burst = 4 })
 
 	MonetizationService:InitReceiptHandler()

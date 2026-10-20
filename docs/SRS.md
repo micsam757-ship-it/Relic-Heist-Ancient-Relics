@@ -67,6 +67,22 @@ referenced by `docs/traceability/requirements-matrix.md`.
   empty step list disables it. See `docs/ADR/0009-tutorial-and-ux.md`.
 - **FR-016** Studio-only admin commands exist for development and never run in
   a published server.
+- **FR-026** The endgame temple **Void Citadel** (`order` 4) unlocks after the
+  configured extractions and price, and spawns only top-tier **Abyssal** relics
+  (Legendary/Mythic) worth more than any earlier temple's haul. Its `void` theme
+  and larger hall set it apart visually. See `docs/ADR/0011-endgame-temple-and-revive.md`.
+- **FR-024** A player's museum is a set of physical wings (Grand Foyer, Exhibition
+  Hall, Secure Vault) that appear as the `MuseumFloor` upgrade level rises. Each
+  wing is a room holding a fixed, ordered set of pedestals; pedestal ids remain a
+  stable global 1-based index assigned Foyer-first, so persisted exhibits and the
+  pedestal-unlock rule are unchanged. See `docs/ADR/0010-museum-expansion.md`.
+- **FR-025** Museum building enhancements (`MarblePillars`, `Lighting`,
+  `GlassCases`, `VelvetRopes`, `Chandeliers`) are ordinary per-profile upgrades
+  that visibly change the plot, are bought through the standard upgrade pipeline,
+  and rebuild the plot in place when purchased. Pedestals are styled per relic
+  rarity from `GameConfig.MuseumBuilding.PedestalTiers` (material, trim, and, at
+  higher tiers, a glow light), falling back to the Common tier for empty or
+  unknown relics.
 - **FR-020** The HUD is responsive across phone, tablet, and desktop viewports,
   scaling to stay legible while never shrinking below a readable floor.
 - **FR-021** All core actions are reachable with keyboard, pointer/touch, and
@@ -91,6 +107,22 @@ referenced by `docs/traceability/requirements-matrix.md`.
   raises the pending ceiling. Unconfigured product/pass IDs disable only the paid
   offers, never the free claim. See `docs/MONETIZATION.md`.
 
+## Difficulty and monetization hooks
+
+- **FR-027** Guardian AI is aggressive: guardians detect a player inside a generous
+  aggro radius and, when line of sight or stealth is broken, keep chasing toward
+  the player's last-known position for `Enemies.HuntSeconds` before resuming
+  patrol, so cover no longer instantly ends a chase. Detection speeds, contact
+  range, contact cooldown, and chase speed are all data-driven and were sharpened
+  across every temple. See `docs/ADR/0008-guardian-enemies.md`.
+- **FR-028** When a player is downed inside a hard temple (`Monetization.ReviveTempleIds`),
+  the server offers an **Instant Revive** Developer Product before applying the
+  death. Purchasing within the window revives the player in place (full health,
+  kept carried relics); declining or letting the window lapse resolves the death
+  normally. All grants are server-authoritative through `ProcessReceipt`, and an
+  unconfigured product id suppresses the offer so the game stays playable. See
+  `docs/ADR/0011-endgame-temple-and-revive.md`.
+
 ## Data requirements
 
 - **FR-017** Profiles are versioned and migrated forward-only; unreadable or
@@ -101,5 +133,5 @@ referenced by `docs/traceability/requirements-matrix.md`.
 ## Out of scope (this slice)
 
 - Cross-server trading, leaderboards, cosmetic art, audio assets, persistent
-  per-temple state, and monetization beyond the Welcome Back offer and VIP Pass
-  (documented in `docs/MONETIZATION.md`).
+  per-temple state, and monetization beyond the Welcome Back offer, the VIP Pass,
+  and the Instant Revive product (documented in `docs/MONETIZATION.md`).

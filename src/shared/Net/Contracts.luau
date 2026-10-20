@@ -24,6 +24,8 @@ local actions: { [string]: ActionSpec } = {
 	RemoveRelic = { requires = { "pedestalId" } },
 	ClaimOfflineIncome = {},
 	PurchaseOfflineDouble = {},
+	PurchaseInstantRevive = {},
+	DeclineInstantRevive = {},
 }
 
 Contracts.Actions = actions

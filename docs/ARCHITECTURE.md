@@ -32,6 +32,8 @@ snapshot. It never computes rewards, prices, damage, or ownership.
    - `Inventory` - owned-relic and pedestal-assignment transitions.
    - `Progression` - temple unlock rules.
    - `Schema` - profile shape, versioned migrations, normalization.
+   - `MuseumBuilder` - museum wing layout, pedestal placement/tiering, and
+     building-enhancement levels (see `docs/ADR/0010-museum-expansion.md`).
    Being pure, they run under the standalone Luau CLI for tests.
 
 3. **Shared / Utilities** - `Signal` (isolated synchronous events) and `Util`
@@ -39,11 +41,18 @@ snapshot. It never computes rewards, prices, damage, or ownership.
 
 4. **Server / Services** - one responsibility each. Services receive a shared
    `ctx` (`{ Config, Services, World, Signals, Logger }`) and expose `Init(ctx)`
-   and `Start()`. `MonetizationService` owns the Welcome Back offline claim and
-   the VIP Pass (see `docs/MONETIZATION.md`).
+   and `Start()`. `MonetizationService` owns the Welcome Back offline claim, the
+   VIP Pass, and the Instant Revive product (see `docs/MONETIZATION.md`).
 
-5. **Server / World** - builds the hub, temples, and museum plots at runtime
-   from `GameConfig` and returns typed handles (portals, traps, pedestals).
+5. **Server / World** - builds the unified ground, hub, temples, connecting
+   avenues, and museum plots at runtime from `GameConfig` and returns typed
+   handles (portals, traps, pedestals). `GameConfig.World` holds the shared
+   layout constants (plot ring radius/start angle, ground top height, plaza
+   radius, avenue width) so the hub, plots and temples stay physically linked:
+   `WorldBuilder.Build()` runs `GroundBuilder.Build` (one solid ground plane
+   flush with every structure), then `HubBuilder.Build` and `TempleBuilder.Build`,
+   then `PathBuilder.Build` (marble avenues from the hub to each plot and
+   temple).
 
 6. **Server / Security** - token-bucket `RateLimiter` used per player and per
    action.
@@ -90,9 +99,16 @@ Studio-only ephemeral fallback).
 
 ## Key constants
 
-- Museum ring: 12 plots, radius 176, 30 degrees apart, start angle 90.
-- Temples: `TutorialRuins` (z=600, free), `ForgottenCatacombs` (z=1000,
-  1 extraction + 500 gold), and `SunkenSanctum` (z=1400, 2 extractions +
-  1500 gold). Hub portals place up to five temples around fixed slots.
-- Pedestals capped at 8 (4 base + 2 per Museum Expansion level + 1 per Extra
-  Pedestal level).
+- Museum ring: 12 plots, radius 380, 30 degrees apart, start angle 105 (offset
+  from the temple lane on +Z). Each wing fits a 90 x 90 box; three wings stack
+  with a slim 8-stud gap (human-scale ceilings 14-16 studs, 1.5-stud walls, 2x2
+  pillars).
+- Temples: `TutorialRuins` (z=300, free), `ForgottenCatacombs` (z=540,
+  1 extraction + 500 gold), `SunkenSanctum` (z=820, 2 extractions + 1500 gold),
+  and the endgame `VoidCitadel` (z=1130, 4 extractions + 5000 gold, `void` theme,
+  `VoidWarden` guardians). Hub portals place up to five temples around fixed slots.
+- Player base walk speed 19 studs/s (`GameConfig.Movement.BaseWalkSpeed`).
+- Pedestals capped at 14 (6 base + 3 per Museum Expansion level + 1 per Extra
+  Pedestal level), spread across three wings: Grand Foyer (ids 1-6), Exhibition
+  Hall (7-10), Secure Vault (11-14). Pedestal platforms are low (waist/chest
+  height, ~3.2 studs) rather than tall pillars.

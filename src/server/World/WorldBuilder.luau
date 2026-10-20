@@ -4,7 +4,9 @@
 local Lighting = game:GetService("Lighting")
 
 local GameConfig = require(game:GetService("ReplicatedStorage").Shared.Config.GameConfig)
+local GroundBuilder = require(script.Parent.GroundBuilder)
 local HubBuilder = require(script.Parent.HubBuilder)
+local PathBuilder = require(script.Parent.PathBuilder)
 local TempleBuilder = require(script.Parent.TempleBuilder)
 
 local WorldBuilder = {}
@@ -46,12 +48,19 @@ function WorldBuilder.Build()
 	world.Name = WORLD_NAME
 	world.Parent = workspace
 
+	-- Unified ground first, so every structure sits on one solid surface.
+	GroundBuilder.Build(world)
+
 	local hub = HubBuilder.Build(world, GameConfig.Temples)
 
 	local temples = {}
 	for templeId, config in GameConfig.Temples do
 		temples[templeId] = TempleBuilder.Build(world, templeId, config)
 	end
+
+	-- Connecting avenues after both hub and temples exist so they land exactly on
+	-- each portal and plot footprint.
+	PathBuilder.Build(world, temples)
 
 	return {
 		Folder = world,

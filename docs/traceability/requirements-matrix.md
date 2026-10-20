@@ -39,8 +39,13 @@ Status legend:
 | FR-019 Welcome Back / 2x | `MonetizationService` (ProcessReceipt, VIP cache), `UIRoot.showWelcomeBack`, `Economy.ClaimPending` | Validated (build); Tested (schema v2, VIP caps); Manual-only (purchase) |
 | FR-020 responsive HUD | `UIRoot` viewport `UIScale`, device-aware nav sizing | Validated (build); Manual-only |
 | FR-021 cross-platform input | `InputController` (keyboard/touch/gamepad), `ContextActionService` bindings | Validated (build); Manual-only |
-| FR-022 accessibility settings | `SettingsService` validation, `Preferences`, `Theme.applyPreferences`, `Schema` v3 | Tested (schema + config); Validated (build); Manual-only |
+| FR-022 accessibility settings | `SettingsService` validation, `Preferences`, `Theme.applyPreferences`, `Schema` (settings fields added in v3, profile now v4) | Tested (schema + config); Validated (build); Manual-only |
 | FR-023 audio/visual feedback | `SoundController`, `EffectsController`, `GameConfig.Audio` | Tested (config); Validated (build); Manual-only (playback) |
+| FR-024 expanding museum wings | `GameConfig.MuseumBuilding.Wings`, `MuseumBuilder.wingUnlocked/unlockedWings/placements`, `PlotBuilder`, `PlotService`, `ViewService.wings` | Tested (layout); Validated (build); Manual-only (geometry) |
+| FR-025 building enhancements + tiered pedestals | `GameConfig.Upgrades` (`effect = "visual"`), `GameConfig.MuseumBuilding.Enhancements/PedestalTiers`, `MuseumBuilder.featureLevels/tierForRarity`, `PlotBuilder.applyPedestalTier/applyPedestalEnhancements`, `MuseumService`, `PlotService` rebuild, `Schema` v4 | Tested (enhancements, tiers, migration); Validated (build); Manual-only (visuals) |
+| FR-026 Void Citadel endgame temple | `GameConfig.Temples.VoidCitadel`, Abyssal relics in `GameConfig.Relics`, `void` theme in `TempleBuilder.THEMES`, `HubBuilder` (order slot) | Tested (temple/relic/unlock integrity); Validated (build); Manual-only (geometry) |
+| FR-027 aggressive guardian chase through stealth | `GameConfig.Enemies` (AggroLingerSeconds, HuntSeconds, Chase.SpeedMultiplier), `GameConfig.Enemies.Kinds.VoidWarden`, `GuardianService` last-known-position hunt | Tested (tuning + kind integrity); Validated (build); Manual-only (playtest) |
+| FR-028 Instant Revive product | `GameConfig.Monetization` (InstantReviveProductId, ReviveTempleIds), `MonetizationService` (offer/grant/receipt), `ExpeditionService` (pendingRevive, RevivePlayer/ResolveDeath), `UIRoot.showRevivePrompt`, `Contracts` actions | Tested (config + contracts); Validated (build); Manual-only (purchase) |
 
 ## Non-functional requirements
 
