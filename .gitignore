@@ -13,5 +13,11 @@ sourcemap.json
 *.rbxlx
 *.rbxl
 
+# Roblox Studio place and lock files
+/build/
+
+# Office lock files
+~$*
+
 # Aftman-managed toolchain (provisioned via `aftman install`)
 /.aftman/

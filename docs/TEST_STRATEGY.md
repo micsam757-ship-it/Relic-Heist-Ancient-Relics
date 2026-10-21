@@ -13,7 +13,9 @@
    Current coverage: upgrade pricing, armor health, pedestal math, income rate
    and cap, offline income window/ceiling, extraction bonus, carry capacity and
    speed clamping, capacity checks, relic ownership/uniqueness, exhibit/unexhibit
-   invariants, unlock rules, schema create/migrate/normalize (v1-v3), tutorial
+   invariants, unlock rules, progression sinks vs offline caps, temple unlock
+   price band vs previous-tier earnings, schema create/migrate/normalize (v1-v3),
+   tutorial
    progression rules, and config integrity (relics, traps, guardians, tutorial
    steps, settings, audio).
 
@@ -58,7 +60,7 @@
 - [ ] Museum income auto-deposits: gold climbs on its own and the top bar eases smoothly.
 - [ ] Upgrades change speed/capacity/health/pedestals as described.
 - [ ] `ForgottenCatacombs` unlocks after 1 extraction + 500 gold.
-- [ ] `SunkenSanctum` unlocks after 2 extractions + 1500 gold and spawns its four relics.
+- [ ] `SunkenSanctum` unlocks after 2 extractions + 4000 gold and spawns its four relics.
 - [ ] Rejoin restores gold, relics, exhibits, upgrades, and settings.
 - [ ] Studio-only admin commands (`!rh_...`) work; unknown commands are ignored.
 

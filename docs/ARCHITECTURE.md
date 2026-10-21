@@ -36,6 +36,12 @@ snapshot. It never computes rewards, prices, damage, or ownership.
     - `Schema` - profile shape, versioned migrations, normalization.
    - `MuseumBuilder` - museum wing layout, pedestal placement/tiering, and
      building-enhancement levels (see `docs/ADR/0010-museum-expansion.md`).
+   - `SceneryLayout` - the shape of the world: the rounded-rectangle geometry,
+     the protected regions (temple halls, hub plaza, museum plot ring, plot
+     avenues, approach avenue, district cross-court), the forest bands measured
+     to the canopy edge, and the layered escarpment that closes the horizon.
+     It reads the configuration through `SceneryLayout.inputs`, so the world
+     builder and the test suite always agree on the horizon.
    Being pure, they run under the standalone Luau CLI for tests.
 
 3. **Shared / Utilities** - `Signal` (isolated synchronous events) and `Util`
@@ -52,14 +58,15 @@ snapshot. It never computes rewards, prices, damage, or ownership.
    temple never shows stacked duplicate pickups.
 
 5. **Server / World** - builds the unified ground, hub, temples, connecting
-   avenues, and museum plots at runtime from `GameConfig` and returns typed
-   handles (portals, traps, pedestals). `GameConfig.World` holds the shared
-   layout constants (plot ring radius/start angle, ground top height, plaza
-   radius, avenue width) so the hub, plots and temples stay physically linked:
-   `WorldBuilder.Build()` runs `GroundBuilder.Build` (one solid ground plane
-   flush with every structure), then `HubBuilder.Build` and `TempleBuilder.Build`,
-   then `PathBuilder.Build` (marble avenues from the hub to each plot and
-   temple).
+   avenues, museum plots and the horizon scenery at runtime from `GameConfig`
+   and returns typed handles (portals, traps, pedestals). `GameConfig.World`
+   holds the shared layout constants (plot ring radius/start angle, ground top
+   height, plaza radius, avenue width) so the hub, plots and temples stay
+   physically linked: `WorldBuilder.Build()` runs `GroundBuilder.Build` (a
+   rounded-rectangle ground slab flush with every structure), then
+   `HubBuilder.Build` and `TempleBuilder.Build`, then `PathBuilder.Build`
+   (marble avenues from the hub to each plot and temple), then
+   `SceneryBuilder.Build` (the decorative grove and the rocky escarpment).
 
 6. **Server / Security** - token-bucket `RateLimiter` used per player and per
    action.
@@ -112,8 +119,8 @@ Studio-only ephemeral fallback).
   with a slim 8-stud gap (human-scale ceilings 14-16 studs, 1.5-stud walls, 2x2
   pillars).
 - Temples: `TutorialRuins` (z=300, free), `ForgottenCatacombs` (z=540,
-  1 extraction + 500 gold), `SunkenSanctum` (z=820, 2 extractions + 1500 gold),
-  and the endgame `VoidCitadel` (z=1130, 4 extractions + 5000 gold, `void` theme,
+  1 extraction + 500 gold), `SunkenSanctum` (z=820, 2 extractions + 4000 gold),
+  and the endgame `VoidCitadel` (z=1130, 4 extractions + 10000 gold, `void` theme,
   `VoidWarden` guardians). Hub portals place up to five temples around fixed slots.
 - Player base walk speed 19 studs/s (`GameConfig.Movement.BaseWalkSpeed`).
 - Pedestals capped at 14 (6 base + 3 per Museum Expansion level + 1 per Extra

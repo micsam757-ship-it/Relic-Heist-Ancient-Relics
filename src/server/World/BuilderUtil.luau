@@ -46,6 +46,29 @@ function BuilderUtil.part(props: PartProps): Part
 	return instance
 end
 
+-- Creates a purely decorative part: anchored, non-colliding, non-queryable,
+-- non-touchable and unable to cast shadows. Used for horizon scenery that must
+-- never affect gameplay, raycasts or the lighting cost of the world.
+function BuilderUtil.decorative(props: PartProps): Part
+	return BuilderUtil.part({
+		Name = props.Name,
+		Size = props.Size,
+		CFrame = props.CFrame,
+		Position = props.Position,
+		Color = props.Color,
+		Material = props.Material,
+		Anchored = true,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+		CastShadow = false,
+		Transparency = props.Transparency,
+		Shape = props.Shape,
+		Reflectance = props.Reflectance,
+		Parent = props.Parent,
+	})
+end
+
 function BuilderUtil.pointLight(parent: BasePart, color: Color3, brightness: number, range: number): PointLight
 	local light = Instance.new("PointLight")
 	light.Color = color

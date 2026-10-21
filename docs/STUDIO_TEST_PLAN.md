@@ -39,6 +39,10 @@ Admin commands are available in Studio via chat: `!rh_help`, `!rh_state`,
 | A3 | Walk to hub | Walk inward | Hub at origin is reachable; no collision traps | |
 | A4 | World integrity | Look around | 4 temples (incl. Void Citadel) and 14 relic pedestals/display slots render; one continuous ground plane; marble avenues reach every plot and temple entrance; hub intact | |
 | A5 | HUD legible | Read top bar | Gold, capacity, and objectives are readable | |
+| A6 | New footprint | Walk to the map edge from the hub in each direction | The ground is a rounded rectangle (1300 x 2180) with rounded corners; the world edge sits just behind the forest, with no wide empty margin, and every plot, avenue and temple still sits fully on the ground | |
+| A7 | Forest belt | Look out from the hub, a plot and a temple | A dense belt of trees rings the playable content, its canopy edge 30-60 studs beyond the museum, hub and temple walls; the belt thins into scattered trees further out; no tree stands on a plot, an avenue, a temple or the hub, and the trees may lean over the edge of an avenue without blocking it | |
+| A8 | Escarpment | Walk the rim in one direction all the way round | A continuous, layered rocky wall closes the horizon just behind the grove with no visible gap, including at the rounded corners; the blocks vary in height and depth, and the second course of rock steps back on top of the first | |
+| A9 | Map edge | Walk off the edge | The player falls off the ground and respawns at their plot; nothing is caught on an invisible wall | |
 
 ---
 
@@ -84,11 +88,12 @@ Admin commands are available in Studio via chat: `!rh_help`, `!rh_state`,
 | D4 | Auto-deposit | Watch gold without acting | Gold climbs on the 1s tick | |
 | D5 | Upgrades | Buy speed/capacity/health/pedestal upgrades | Effects match descriptions immediately | |
 | D6 | Unlock 1 | `!rh_state`; earn 1 extraction + 500 gold | `ForgottenCatacombs` unlocks | |
-| D7 | Unlock 2 | Earn 2 extractions + 1500 gold | `SunkenSanctum` unlocks and spawns its four relics | |
+| D7 | Unlock 2 | Earn 2 extractions + 4000 gold | `SunkenSanctum` unlocks and spawns its four relics | |
 | D8 | Locked panel | Open Expeditions | Locked rows show `current/required` extractions and remaining count | |
 | D9 | Museum wings | Buy Museum Expansion to level 1, then level 2 | Exhibition Hall, then Secure Vault appear; the plot rebuilds in place and the player keeps standing on it | |
 | D10 | Enhancements | Buy a visual upgrade (e.g. Marble Colonnade) | Plot rebuilds with the new fixtures; existing exhibits re-home onto their pedestals | |
-| D11 | Void Citadel unlock | Earn 4 extractions + 5000 gold | `VoidCitadel` unlocks on its hub portal; the `void` hall and its guardians render | |
+| D11 | Void Citadel unlock | Earn 4 extractions + 10000 gold | `VoidCitadel` unlocks on its hub portal; the `void` hall and its guardians render | |
+| D12 | Economy ratio | Collect every relic, exhibit all, wait 10 min; then run one best Void Citadel haul | Passive gain over the window is a small fraction of the single-run gold; extraction gold is ~15% of carried relic value | |
 
 ---
 
@@ -199,7 +204,7 @@ Copy completed rows here (or straight into `docs/PROJECT_STATUS.md`):
 
 | Session | Pass | Fail | Blocked | Notes / defects found |
 | --- | --- | --- | --- | --- |
-| A | | | | |
+| A | A6, A7, A8, A9 | | | New footprint, grove belt, escarpment rim and the walk-off-the-edge respawn were playtested in Studio by the owner; rows A1-A5 not yet recorded |
 | B | | | | |
 | C | | | | |
 | D | | | | |

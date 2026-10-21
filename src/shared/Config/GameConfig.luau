@@ -30,6 +30,91 @@ GameConfig.World = {
 	-- Width of the grand connecting avenues (hub <-> plots and hub <-> temples).
 	AvenueWidth = 16,
 	AvenueTop = 0,
+	-- The physical ground footprint. The map is a rounded rectangle: the
+	-- bounds below are the outer edges of the slab and the four corners are
+	-- cut back by `CornerRadius`. The footprint is sized to the playable
+	-- content plus the forest belt and the rocky rim, so the map has no wide
+	-- empty margins. The ground edge is also the fall line, so it must stay
+	-- clear of every structure and of the decorative scenery.
+	Ground = {
+		MinX = -650,
+		MaxX = 650,
+		MinZ = -640,
+		MaxZ = 1540,
+		CornerRadius = 300,
+		-- Thickness of the solid base slab and of the lighter top surface.
+		BaseThickness = 4,
+		SurfaceThickness = 0.4,
+		-- Spacing of the inlaid grid lines, in studs.
+		GridStep = 150,
+	},
+	-- The ground apron under a museum plot. `PlotBuilder` lays the same
+	-- apron out, and the scenery keeps its forest clear of it.
+	PlotApron = {
+		Width = 120,
+		Length = 260,
+		OffsetZ = 2,
+	},
+	-- Decorative scenery: the grove that frames the play area and the rocky
+	-- escarpment that closes the horizon. Every part it produces is
+	-- anchored, non-colliding, non-queryable, non-touchable and casts no
+	-- shadow, so it can never affect gameplay, raycasts or lighting cost.
+	Scenery = {
+		-- Fixed so the horizon is identical on every server boot.
+		Seed = 20250921,
+		-- The shape of the playable content. The grove belt is measured from
+		-- the real structures, and this shape is the envelope that holds them:
+		-- every temple hall, museum plot and plaza corner sits inside it.
+		Content = {
+			MinX = -540,
+			MaxX = 540,
+			MinZ = -540,
+			MaxZ = 1420,
+			CornerRadius = 200,
+		},
+		Grove = {
+			-- How far a tree centre must stay inside the ground footprint.
+			-- The rim runs along the ground edge, so this keeps the outermost
+			-- canopies clear of the rock.
+			GroundClearance = 88,
+			-- The jitter applied to a candidate, as a fraction of its spacing.
+			JitterFraction = 0.12,
+			-- The closest two tree centres may be. Canopies overlap a little,
+			-- so the belt reads as one forest rather than a row of trees.
+			MinSpacing = 22,
+			-- Bands of the grove, measured to the edge of the canopy and
+			-- counted from the playable content. The first band is the dense
+			-- belt that starts 30 studs beyond the content; the second thins
+			-- out into the clearings between the belt and the rim.
+			Bands = {
+				{ inner = 30, outer = 60, spacing = 30 },
+				{ inner = 60, spacing = 190 },
+			},
+		},
+		Escarpment = {
+			-- How deep the rocky band reaches inwards from the ground edge.
+			Depth = 52,
+			-- How much a block may be shallower than `Depth`, so the inner
+			-- face of the wall is jagged instead of a clean curve.
+			DepthVariation = 16,
+			-- How far each segment runs past the shared vertices, so
+			-- consecutive segments overlap instead of leaving a seam.
+			Overlap = 8,
+			-- The target length of one segment along the outline. Short
+			-- segments follow the rounded corners closely, so the rock never
+			-- sinks away from the ground edge.
+			SegmentLength = 54,
+			MinHeight = 22,
+			MaxHeight = 48,
+			-- A crest block steps back on top of every n-th cliff block, so the
+			-- wall reads as two courses of rock.
+			CrestEvery = 2,
+			CrestHeight = 12,
+			CrestDepth = 22,
+		},
+		-- The hard ceiling on decorative parts.
+		PartBudget = 800,
+	},
 }
 
 GameConfig.Save = {
@@ -47,14 +132,17 @@ GameConfig.Save = {
 GameConfig.Economy = {
 	StartingGold = 250,
 	-- Offline income is held as pending and claimed through the Welcome Back
-	-- modal, so the cap is measured against the offline window only.
+	-- modal, so the cap is measured against the offline window only. Both
+	-- ceilings stay well below the total progression sinks (unlocks + all
+	-- upgrades) so idle play can never buy out the game; enforced by the
+	-- "total progression costs exceed the offline caps" test.
 	OfflineCapSeconds = 4 * 60 * 60,
-	MaxPendingIncome = 50000,
+	MaxPendingIncome = 5000,
 	-- VIP Pass (a Game Pass) raises both the window and the ceiling.
 	VipOfflineCapSeconds = 24 * 60 * 60,
-	VipMaxPendingIncome = 200000,
+	VipMaxPendingIncome = 20000,
 	MaxCarriedRelics = 10,
-	ExtractionValueToGold = 0.25,
+	ExtractionValueToGold = 0.15,
 }
 
 GameConfig.Movement = {
@@ -228,7 +316,7 @@ GameConfig.Relics = {
 		rarity = "Common",
 		weight = 8,
 		value = 90,
-		incomePerMinute = 4,
+		incomePerMinute = 1,
 		templeIds = { "TutorialRuins" },
 		visual = { kind = "ankh", primary = { 166, 118, 74 }, secondary = { 92, 64, 40 }, glow = false },
 	},
@@ -238,7 +326,7 @@ GameConfig.Relics = {
 		rarity = "Common",
 		weight = 10,
 		value = 140,
-		incomePerMinute = 6,
+		incomePerMinute = 1,
 		templeIds = { "TutorialRuins" },
 		visual = { kind = "scarab", primary = { 222, 175, 61 }, secondary = { 133, 96, 28 }, glow = false },
 	},
@@ -248,7 +336,7 @@ GameConfig.Relics = {
 		rarity = "Rare",
 		weight = 22,
 		value = 520,
-		incomePerMinute = 18,
+		incomePerMinute = 4,
 		templeIds = { "TutorialRuins", "ForgottenCatacombs" },
 		visual = { kind = "idol", primary = { 226, 146, 62 }, secondary = { 110, 58, 26 }, glow = true },
 	},
@@ -258,7 +346,7 @@ GameConfig.Relics = {
 		rarity = "Rare",
 		weight = 26,
 		value = 650,
-		incomePerMinute = 22,
+		incomePerMinute = 4,
 		templeIds = { "TutorialRuins" },
 		visual = { kind = "mask", primary = { 108, 168, 148 }, secondary = { 44, 84, 76 }, glow = false },
 	},
@@ -268,7 +356,7 @@ GameConfig.Relics = {
 		rarity = "Rare",
 		weight = 24,
 		value = 700,
-		incomePerMinute = 24,
+		incomePerMinute = 5,
 		templeIds = { "ForgottenCatacombs" },
 		visual = { kind = "urn", primary = { 42, 40, 48 }, secondary = { 108, 214, 206 }, glow = true },
 	},
@@ -278,7 +366,7 @@ GameConfig.Relics = {
 		rarity = "Legendary",
 		weight = 40,
 		value = 2400,
-		incomePerMinute = 70,
+		incomePerMinute = 14,
 		templeIds = { "ForgottenCatacombs" },
 		visual = { kind = "jackal", primary = { 38, 34, 32 }, secondary = { 220, 170, 62 }, glow = false },
 	},
@@ -288,7 +376,7 @@ GameConfig.Relics = {
 		rarity = "Legendary",
 		weight = 44,
 		value = 3000,
-		incomePerMinute = 90,
+		incomePerMinute = 18,
 		templeIds = { "ForgottenCatacombs" },
 		visual = { kind = "crystal", primary = { 68, 214, 220 }, secondary = { 30, 84, 110 }, glow = true },
 	},
@@ -298,7 +386,7 @@ GameConfig.Relics = {
 		rarity = "Mythic",
 		weight = 65,
 		value = 12000,
-		incomePerMinute = 260,
+		incomePerMinute = 52,
 		templeIds = { "ForgottenCatacombs" },
 		visual = { kind = "core", primary = { 196, 92, 224 }, secondary = { 68, 30, 96 }, glow = true },
 	},
@@ -308,7 +396,7 @@ GameConfig.Relics = {
 		rarity = "Rare",
 		weight = 20,
 		value = 620,
-		incomePerMinute = 21,
+		incomePerMinute = 4,
 		templeIds = { "ForgottenCatacombs", "SunkenSanctum" },
 		visual = { kind = "crystal", primary = { 62, 150, 210 }, secondary = { 24, 64, 110 }, glow = true },
 	},
@@ -318,7 +406,7 @@ GameConfig.Relics = {
 		rarity = "Legendary",
 		weight = 38,
 		value = 2200,
-		incomePerMinute = 66,
+		incomePerMinute = 13,
 		templeIds = { "SunkenSanctum" },
 		visual = { kind = "mask", primary = { 96, 170, 120 }, secondary = { 196, 150, 60 }, glow = true },
 	},
@@ -328,7 +416,7 @@ GameConfig.Relics = {
 		rarity = "Legendary",
 		weight = 46,
 		value = 3200,
-		incomePerMinute = 95,
+		incomePerMinute = 19,
 		templeIds = { "SunkenSanctum" },
 		visual = { kind = "core", primary = { 120, 200, 230 }, secondary = { 30, 70, 110 }, glow = true },
 	},
@@ -338,7 +426,7 @@ GameConfig.Relics = {
 		rarity = "Mythic",
 		weight = 70,
 		value = 15000,
-		incomePerMinute = 300,
+		incomePerMinute = 60,
 		templeIds = { "SunkenSanctum" },
 		visual = { kind = "idol", primary = { 64, 180, 190 }, secondary = { 20, 80, 90 }, glow = true },
 	},
@@ -354,7 +442,7 @@ GameConfig.Relics = {
 		rarity = "Legendary",
 		weight = 38,
 		value = 4200,
-		incomePerMinute = 120,
+		incomePerMinute = 24,
 		templeIds = { "VoidCitadel" },
 		visual = { kind = "crystal", primary = { 150, 96, 224 }, secondary = { 36, 20, 64 }, glow = true },
 	},
@@ -364,7 +452,7 @@ GameConfig.Relics = {
 		rarity = "Legendary",
 		weight = 44,
 		value = 5200,
-		incomePerMinute = 150,
+		incomePerMinute = 30,
 		templeIds = { "VoidCitadel" },
 		visual = { kind = "mask", primary = { 190, 150, 70 }, secondary = { 60, 30, 90 }, glow = true },
 	},
@@ -374,7 +462,7 @@ GameConfig.Relics = {
 		rarity = "Mythic",
 		weight = 70,
 		value = 20000,
-		incomePerMinute = 380,
+		incomePerMinute = 76,
 		templeIds = { "VoidCitadel" },
 		visual = { kind = "idol", primary = { 46, 40, 66 }, secondary = { 128, 64, 200 }, glow = true },
 	},
@@ -384,7 +472,7 @@ GameConfig.Relics = {
 		rarity = "Mythic",
 		weight = 88,
 		value = 40000,
-		incomePerMinute = 700,
+		incomePerMinute = 140,
 		templeIds = { "VoidCitadel" },
 		visual = { kind = "core", primary = { 200, 80, 240 }, secondary = { 40, 10, 70 }, glow = true },
 	},
@@ -629,7 +717,7 @@ GameConfig.Temples = {
 		difficulty = 3,
 		order = 3,
 		minExtractions = 2,
-		unlockPrice = 1500,
+		unlockPrice = 4000,
 		durationSeconds = 420,
 		requiredRelics = 3,
 		theme = "sanctum",
@@ -726,7 +814,7 @@ GameConfig.Temples = {
 		difficulty = 5,
 		order = 4,
 		minExtractions = 4,
-		unlockPrice = 5000,
+		unlockPrice = 10000,
 		durationSeconds = 480,
 		requiredRelics = 3,
 		theme = "void",

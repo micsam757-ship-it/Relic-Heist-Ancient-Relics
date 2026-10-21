@@ -8,6 +8,7 @@ local Inventory = require("../src/shared/Domain/Inventory")
 local Progression = require("../src/shared/Domain/Progression")
 local RunRules = require("../src/shared/Domain/RunRules")
 local Schema = require("../src/shared/Domain/Schema")
+local SceneryLayout = require("../src/shared/Domain/SceneryLayout")
 local Tutorial = require("../src/shared/Domain/Tutorial")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Util = require("../src/shared/Utilities/Util")
@@ -245,6 +246,27 @@ test("VIP config raises both the offline window and ceiling", function()
 	assertEquals(GameConfig.Economy.OfflineCapSeconds, 4 * 60 * 60, "standard window is 4h")
 end)
 
+test("total progression costs exceed the offline caps", function()
+	local total = 0
+	for _, temple in GameConfig.Temples do
+		total += temple.unlockPrice
+	end
+	for _, upgrade in GameConfig.Upgrades do
+		for level = 0, upgrade.maxLevel - 1 do
+			total += Economy.upgradeCost(upgrade, level) or 0
+		end
+	end
+	assertTrue(
+		total > GameConfig.Economy.VipMaxPendingIncome,
+		string.format(
+			"progression sinks (%d) must exceed the VIP offline ceiling (%d)",
+			total,
+			GameConfig.Economy.VipMaxPendingIncome
+		)
+	)
+	assertTrue(GameConfig.Economy.MaxPendingIncome < total, "standard offline ceiling must stay below total sinks")
+end)
+
 test("normalize strips invalid data and clamps values", function()
 	local profile = Schema.createDefault(100, "s", 250)
 	profile.gold = -50
@@ -480,6 +502,50 @@ test("unlock requirements increase with temple order", function()
 	for _, temple in ordered do
 		assertTrue(temple.minExtractions >= previous, string.format("%s breaks the unlock chain", temple.name))
 		previous = temple.minExtractions
+	end
+end)
+
+test("temple unlock prices cost a fair band of the previous tier's earnings", function()
+	local function bestHaulValue(temple)
+		local best = 0
+		local spawns = temple.relicSpawns
+		for mask = 1, 2 ^ #spawns - 1 do
+			local weight = 0
+			local value = 0
+			for index = 1, #spawns do
+				if bit32.band(mask, 2 ^ (index - 1)) ~= 0 then
+					local relic = GameConfig.Relics[spawns[index].definitionId]
+					weight += relic.weight
+					value += relic.value
+				end
+			end
+			if weight <= 160 and value > best then
+				best = value
+			end
+		end
+		return best
+	end
+	local ordered = {}
+	for _, temple in GameConfig.Temples do
+		table.insert(ordered, temple)
+	end
+	table.sort(ordered, function(a, b)
+		return a.order < b.order
+	end)
+	for index = 2, #ordered do
+		local temple = ordered[index]
+		local goldPerRun = math.floor(bestHaulValue(ordered[index - 1]) * GameConfig.Economy.ExtractionValueToGold)
+		assertTrue(goldPerRun > 0, temple.name .. " has no earning baseline")
+		local runs = temple.unlockPrice / goldPerRun
+		assertTrue(
+			runs >= 1.2 and runs <= 6,
+			string.format(
+				"%s unlock (%d gold) costs %.1f runs of the previous tier (band is 1.2-6)",
+				temple.name,
+				temple.unlockPrice,
+				runs
+			)
+		)
 	end
 end)
 
@@ -1017,6 +1083,261 @@ test("temple corridor halls do not overlap along +Z", function()
 		local previousBack = previous.origin.z + previous.hall.length
 		assertTrue(ordered[index].origin.z > previousBack, "temple fronts clear the previous temple's back")
 	end
+end)
+
+-- Map footprint and scenery -------------------------------------------------
+
+-- The layout module reduces the configuration to plain numbers, so these
+-- tests read the very same numbers the world builder does.
+local MAP = SceneryLayout.inputs(GameConfig)
+local MAP_TREES = SceneryLayout.trees(MAP.grove, MAP.content, MAP.ground, MAP.regions, MAP.seed)
+local MAP_ESCARPMENT = SceneryLayout.escarpment(MAP.ground, MAP.escarpment, MAP.seed + 1)
+
+test("the ground footprint is the approved rounded rectangle", function()
+	assertEquals(MAP.ground.minX, -650, "west edge")
+	assertEquals(MAP.ground.maxX, 650, "east edge")
+	assertEquals(MAP.ground.minZ, -640, "south edge")
+	assertEquals(MAP.ground.maxZ, 1540, "north edge")
+	assertEquals(MAP.ground.cornerRadius, 300, "corner radius")
+	-- The corners are cut back, the straight sides are not.
+	assertTrue(SceneryLayout.signedDistance(MAP.ground, 650, 1540) > 0, "the corner is cut away")
+	assertTrue(SceneryLayout.signedDistance(MAP.ground, 500, 1300) < 0, "the corner arc is on the ground")
+	assertTrue(SceneryLayout.signedDistance(MAP.ground, 649, 390) < 0, "the straight side is on the ground")
+end)
+
+test("the ground footprint is the smallest one that still holds the content", function()
+	-- The ground has to reach far enough beyond the playable content for the
+	-- forest belt and the rocky rim, and no further.
+	local needed = MAP.grove.bands[1].outer + SceneryLayout.TREE_CANOPY_HALF_MAX + MAP.escarpment.depth
+	local ring = GameConfig.World.RingRadius
+	local step = 360 / GameConfig.World.MaxPlots
+	local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
+	for index = 0, GameConfig.World.MaxPlots - 1 do
+		local angle = math.rad(GameConfig.World.StartAngleDegrees + index * step)
+		local centreX = math.cos(angle) * ring
+		local centreZ = math.sin(angle) * ring
+		for _, along in { -128, 132 } do
+			for _, across in { -60, 60 } do
+				local x = centreX + (math.cos(angle) * along) + (math.sin(angle) * across)
+				local z = centreZ + (math.sin(angle) * along) - (math.cos(angle) * across)
+				minX = math.min(minX, x)
+				maxX = math.max(maxX, x)
+				minZ = math.min(minZ, z)
+				maxZ = math.max(maxZ, z)
+			end
+		end
+	end
+	-- The back of the last temple on the processional way is the northern
+	-- extreme of the playable content.
+	for _, temple in GameConfig.Temples do
+		maxZ = math.max(maxZ, temple.origin.z + temple.hall.length)
+	end
+
+	for _, margin in { MAP.ground.maxX - maxX, minX - MAP.ground.minX, MAP.ground.maxZ - maxZ, minZ - MAP.ground.minZ } do
+		assertTrue(margin >= needed - 40, "the ground still holds the belt and the rim")
+		assertTrue(margin <= needed + 40, "the ground does not waste empty margin")
+	end
+end)
+
+test("every structure sits inside the ground footprint", function()
+	for _, region in MAP.regions do
+		if region.kind == "box" then
+			for _, x in { region.minX, region.maxX } do
+				for _, z in { region.minZ, region.maxZ } do
+					assertTrue(SceneryLayout.contains(MAP.ground, x, z), region.name .. " sits on the ground")
+				end
+			end
+		else
+			for _, angle in { 0, math.pi / 2, math.pi, 3 * math.pi / 2 } do
+				local x = region.centerX + math.cos(angle) * region.radius
+				local z = region.centerZ + math.sin(angle) * region.radius
+				assertTrue(SceneryLayout.contains(MAP.ground, x, z), region.name .. " sits on the ground")
+			end
+		end
+	end
+	-- The plot aprons reach past the ring radius, so they are checked too.
+	local ring = GameConfig.World.RingRadius
+	local step = 360 / GameConfig.World.MaxPlots
+	for index = 0, GameConfig.World.MaxPlots - 1 do
+		local angle = math.rad(GameConfig.World.StartAngleDegrees + index * step)
+		local centreX = math.cos(angle) * ring
+		local centreZ = math.sin(angle) * ring
+		for _, along in { -128, 132 } do
+			for _, across in { -60, 60 } do
+				local x = centreX + (math.cos(angle) * along) + (math.sin(angle) * across)
+				local z = centreZ + (math.sin(angle) * along) - (math.cos(angle) * across)
+				assertTrue(SceneryLayout.contains(MAP.ground, x, z), "a plot apron sits on the ground")
+			end
+		end
+	end
+end)
+
+test("the grove is deterministic", function()
+	local again = SceneryLayout.trees(MAP.grove, MAP.content, MAP.ground, MAP.regions, MAP.seed)
+	assertEquals(#again, #MAP_TREES, "same number of trees")
+	for index = 1, #MAP_TREES do
+		assertEquals(again[index].x, MAP_TREES[index].x, "tree " .. index .. " x")
+		assertEquals(again[index].z, MAP_TREES[index].z, "tree " .. index .. " z")
+		assertEquals(again[index].yaw, MAP_TREES[index].yaw, "tree " .. index .. " yaw")
+	end
+end)
+
+test("the grove keeps the ground clearance and the protected areas clear", function()
+	assertTrue(#MAP_TREES > 0, "the grove has trees")
+	for _, tree in MAP_TREES do
+		assertTrue(
+			SceneryLayout.signedDistance(MAP.ground, tree.x, tree.z) <= -MAP.grove.groundClearance,
+			"a tree keeps the ground clearance"
+		)
+		for _, region in MAP.regions do
+			if region.hard then
+				-- The canopy edge keeps the region's own margin.
+				assertTrue(
+					SceneryLayout.distanceToRegion(region, tree.x, tree.z) - SceneryLayout.canopyReach(tree)
+						>= region.margin,
+					"a tree clears " .. region.name
+				)
+			elseif not region.beltOnly then
+				-- A path may be crowded, but the canopy may only lean over its
+				-- edge by the agreed overhang.
+				local overhang = SceneryLayout.canopyReach(tree)
+					- SceneryLayout.distanceToRegion(region, tree.x, tree.z)
+				assertTrue(overhang <= SceneryLayout.PATH_OVERHANG + 0.001, "a tree only borders " .. region.name)
+			end
+		end
+		for _, corner in SceneryLayout.canopyCorners(tree) do
+			assertTrue(SceneryLayout.contains(MAP.ground, corner.x, corner.z), "a canopy stays on the ground")
+		end
+	end
+end)
+
+test("the forest belt sits 30 to 60 studs beyond the playable content", function()
+	local belt = MAP.grove.bands[1]
+	local beltTrees = 0
+	for _, tree in MAP_TREES do
+		local _, distance, dirX, dirZ = SceneryLayout.nearestContent(MAP.regions, tree.x, tree.z)
+		if distance <= belt.outer + SceneryLayout.canopyReach(tree) then
+			beltTrees += 1
+			local gap = distance - SceneryLayout.canopySupport(tree, dirX, dirZ)
+			assertTrue(gap >= belt.inner - 0.001, "the canopy does not come closer than the belt")
+			assertTrue(gap <= belt.outer + 0.001, "the canopy does not reach past the belt")
+		end
+	end
+	assertTrue(beltTrees > 200, "the belt is dense enough to read as a forest wall")
+end)
+
+test("the grove keeps its minimum spacing", function()
+	for first = 1, #MAP_TREES do
+		for second = first + 1, #MAP_TREES do
+			local dx = MAP_TREES[first].x - MAP_TREES[second].x
+			local dz = MAP_TREES[first].z - MAP_TREES[second].z
+			local distance = math.sqrt((dx * dx) + (dz * dz))
+			assertTrue(distance >= MAP.grove.minSpacing, "two trees stay apart")
+		end
+	end
+end)
+
+test("the decorative part count stays inside the budget", function()
+	local parts = SceneryLayout.partCount(MAP_TREES, MAP_ESCARPMENT)
+	assertTrue(parts <= GameConfig.World.Scenery.PartBudget, "the scenery fits the part budget")
+	assertTrue(parts >= 600, "the horizon is dense enough to read as a forest")
+end)
+
+test("the escarpment ring closes without a seam", function()
+	local polygons = {}
+	local cliffs = 0
+	for _, segment in MAP_ESCARPMENT do
+		if segment.layer == "cliff" then
+			cliffs += 1
+			table.insert(polygons, SceneryLayout.escarpmentPolygon(segment))
+		end
+	end
+	assertTrue(cliffs > 50, "the rim has enough blocks to follow the outline")
+	for index = 1, #polygons do
+		local a = polygons[index]
+		local b = polygons[(index % #polygons) + 1]
+		local overlap = SceneryLayout.polygonOverlapArea(a, b)
+		assertTrue(overlap >= SceneryLayout.ESCARPMENT_MIN_OVERLAP_AREA, "neighbouring segments overlap")
+	end
+	-- The mid-line of the band has to be covered by the rock everywhere, even
+	-- where the blocks are shallower than the deepest one.
+	local minDepth = math.huge
+	for _, segment in MAP_ESCARPMENT do
+		if segment.layer == "cliff" then
+			minDepth = math.min(minDepth, segment.depth)
+		end
+	end
+	local midLine = SceneryLayout.escarpmentMidline(MAP.ground, minDepth, 4)
+	assertTrue(#midLine > 100, "the rim is sampled densely")
+	for _, point in midLine do
+		local covered = false
+		for _, polygon in polygons do
+			if SceneryLayout.polygonContainsPoint(polygon, point.x, point.z) then
+				covered = true
+				break
+			end
+		end
+		assertTrue(covered, "the rocky rim has no gap")
+	end
+end)
+
+test("the escarpment is layered, varied and set back behind the grove", function()
+	local crests = 0
+	local minDepth, maxDepth = math.huge, 0
+	local minHeight, maxHeight = math.huge, 0
+	for _, segment in MAP_ESCARPMENT do
+		if segment.layer == "crest" then
+			crests += 1
+			assertTrue(segment.baseY > 0, "a crest block sits on top of the wall")
+			assertTrue(segment.depth < MAP.escarpment.depth, "a crest block is shallower than the wall")
+		else
+			minDepth = math.min(minDepth, segment.depth)
+			maxDepth = math.max(maxDepth, segment.depth)
+			minHeight = math.min(minHeight, segment.height)
+			maxHeight = math.max(maxHeight, segment.height)
+		end
+	end
+	assertTrue(crests > 20, "the wall has a second course of rock")
+	assertTrue(maxDepth - minDepth > 10, "the wall has varied depths")
+	assertTrue(maxHeight - minHeight > 10, "the wall has varied heights")
+
+	-- The rock stands shortly behind the grove: the canopies stop short of it.
+	local closest = math.huge
+	for _, tree in MAP_TREES do
+		local toEdge = -SceneryLayout.signedDistance(MAP.ground, tree.x, tree.z)
+		closest = math.min(closest, toEdge - SceneryLayout.canopyReach(tree) - MAP.escarpment.depth)
+	end
+	assertTrue(closest >= 0, "the grove does not grow into the rock")
+	assertTrue(closest <= 60, "the rock stands close behind the grove")
+end)
+
+test("the escarpment hugs the ground edge", function()
+	for _, segment in MAP_ESCARPMENT do
+		if segment.layer == "cliff" then
+			local outerX = segment.centerX - (segment.wX * (segment.depth / 2))
+			local outerZ = segment.centerZ - (segment.wZ * (segment.depth / 2))
+			local outside = SceneryLayout.signedDistance(MAP.ground, outerX, outerZ)
+			assertTrue(outside <= SceneryLayout.ESCARPMENT_OUTWARD_OVERHANG + 0.5, "the band reaches the ground edge")
+			-- A short straight segment across a rounded corner sits a fraction of a
+			-- stud inside the outline; anything more would leave a visible gap.
+			assertTrue(outside >= -1, "the band does not float inside the footprint")
+		end
+	end
+end)
+
+test("the rock never reaches into the playable content", function()
+	for _, segment in MAP_ESCARPMENT do
+		for _, corner in SceneryLayout.escarpmentPolygon(segment) do
+			local _, distance = SceneryLayout.nearestContent(MAP.regions, corner.x, corner.z)
+			assertTrue(distance >= 40, "the rock keeps away from the playable content")
+		end
+	end
+end)
+
+test("the world has no kill plane or fall guard of its own", function()
+	assertTrue(GameConfig.World.KillPlane == nil, "no kill plane in the world config")
+	assertTrue(GameConfig.World.FallenPartsDestroyHeight == nil, "no fall height in the world config")
+	assertTrue(GameConfig.World.Gravity == nil, "gravity is left at the engine default")
 end)
 
 -- Run rules (replayable expeditions) ------------------------------------

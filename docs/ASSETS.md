@@ -11,9 +11,29 @@ textures, sounds, animations, or external assets in this repository.
 | Hub plaza, portals, kiosks | `HubBuilder` | `src/server/World/HubBuilder.luau` |
 | Temples, traps, altars, guardians | `TempleBuilder` | `src/server/World/TempleBuilder.luau` |
 | Museum plots, wings, pedestals | `PlotBuilder` | `src/server/World/PlotBuilder.luau` |
+| Ground slab and inlaid grid | `GroundBuilder` | `src/server/World/GroundBuilder.luau` |
+| Grove and rocky escarpment | `SceneryBuilder` | `src/server/World/SceneryBuilder.luau` |
 | Relic models (8 kinds) | `RelicVisuals` | `src/server/World/RelicVisuals.luau` |
 | Shared part helpers | `BuilderUtil` | `src/server/World/BuilderUtil.luau` |
 | Guardian rig blockout | `TempleBuilder.buildGuardian` | `src/server/World/TempleBuilder.luau` |
+
+The horizon scenery is procedural blockout as well: a dense belt of two-part
+trees (a trunk and a canopy) that hugs the playable area, and a layered wall of
+rock blocks that closes the world edge. Both are **decorative only** - anchored,
+no collision, no raycast, no touch, no shadow - so they can never change
+gameplay or the lighting cost. Their placement is decided by the pure
+`SceneryLayout` module, which measures the belt to the canopy edge (30 to 60
+studs beyond the playable content), keeps the grove clear of the temple
+halls, the hub plaza and the museum plot ring, lets the forest border and
+partly overhang the avenues, and keeps the rock wall gapless around the whole
+footprint.
+
+The world footprint is a rounded rectangle (a 1300 x 2180 stud slab with
+300-stud quarter-circle corners) described by `GameConfig.World.Ground`. It is
+sized to the playable content plus the forest belt plus the rocky rim, so the
+map has no wide empty margin. The ground is built from a central slab, four
+edge slabs and four corner discs, so the outline the scenery hugs and the
+outline the ground has are the same shape.
 
 Relic visual kinds: `scarab`, `ankh`, `idol`, `mask`, `urn`, `jackal`,
 `crystal`, `core`.

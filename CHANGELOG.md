@@ -67,6 +67,50 @@ major.minor.patch scheme while pre-1.0.
   spawns somewhere; `requiredRelics` haulable at max backpack; credit rule;
   deterministic spawn plans; relic income under the museum rate cap) — 95
   assertions total.
+- Pure `SceneryLayout` module (`src/shared/Domain/SceneryLayout.luau`) holds the
+  shape of the world: the rounded-rectangle geometry, the protected regions
+  (temple halls, hub plaza, museum plot ring, plot avenues, approach avenue,
+  district cross-court), the forest bands and the layered escarpment, plus the
+  polygon helpers used to prove the rim is gapless. It reads the configuration
+  through `SceneryLayout.inputs`, so the world builder and the test suite always
+  agree on the horizon. 12 map/scenery tests — 110 assertions total.
+
+### Changed
+
+- **World footprint and horizon redesigned.** The 3600 x 3600 square ground slab
+  is replaced by a rounded rectangle (`GameConfig.World.Ground`: X -650..650,
+  Z -640..1540, 300-stud corner radius) built from a central slab, four edge
+  slabs and four corner discs, so the map edge reads as a carved plateau. The
+  slab is sized to the playable content plus the forest belt plus the rocky
+  rim, so the map has no wide empty margin. The world edge is now the fall
+  line, exactly as before: nothing in the project installs a kill plane or a
+  fall guard, so walking off the edge respawns the player at their plot.
+- **Denser, closer horizon.** `SceneryBuilder` now builds a 299-tree forest
+  whose dense belt is measured to the canopy edge and sits 30 to 60 studs
+  beyond the museum, hub and temple walls, plus a layered rocky escarpment
+  (119 cliff blocks and 60 crest blocks) that stands close behind the grove
+  with no visible gap (777 decorative parts, ceiling 800). The wall varies in
+  height and depth, and every second block carries a crest that steps back on
+  top of it, so the horizon reads as rock rather than a ribbon. Every part is
+  anchored, non-colliding, non-queryable, non-touchable and casts no shadow,
+  so the scenery cannot affect gameplay, raycasts or lighting cost. The old
+  treeline and ridge ring are gone.
+- **Economy rebalance (M2)** so active expeditions clearly out-earn passive
+  income and progression cannot be bought out while idle:
+  - Extraction conversion `ExtractionValueToGold` `0.25 → 0.15` (a max Void
+    Citadel haul now pays ~9000 gold, ~1100-3600 g/min of active play).
+  - Every relic's `incomePerMinute` reduced ~5x (sum `2326 → 465/min`, ~511/min
+    with the level-2 museum floor bonus; the Eye of the Void `700 → 140/min`).
+  - Pending offline ceilings `MaxPendingIncome` `50000 → 5000` and
+    `VipMaxPendingIncome` `200000 → 20000` (VIP keeps its 4x ratio; both now sit
+    below the ~46.6k total progression sinks).
+  - Temple gold gates: `SunkenSanctum` `1500 → 4000`, `VoidCitadel`
+    `5000 → 10000` (each costs 1.2-6 runs of the previous tier's best haul;
+    Catacombs stays at 500).
+  - Upgrade costs unchanged; estimated full completion ~3-4h of active play.
+  - 2 new tests (total progression costs exceed both offline ceilings; unlock
+    prices sit in the fair-band window against previous-tier earnings, using a
+    brute-force best-haul helper) — 97 assertions total.
 
 ### Fixed
 

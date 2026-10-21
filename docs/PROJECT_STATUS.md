@@ -1,6 +1,6 @@
 # Project Status
 
-Updated: 2026-10-20
+Updated: 2026-10-22
 
 ## Summary
 
@@ -22,11 +22,12 @@ partially verified.
 | Area | Status | Notes |
 | --- | --- | --- |
 | Project scaffolding (Rojo, Stylua, Selene) | Implemented + validated | `rojo build`, `stylua --check`, `selene` all pass |
-| Shared domain logic (Economy, Encumbrance, Inventory, Progression, RunRules, Schema, Tutorial, Util) | Implemented + tested | 95 assertions pass under the standalone Luau CLI |
+| Shared domain logic (Economy, Encumbrance, Inventory, Progression, RunRules, Schema, SceneryLayout, Tutorial, Util) | Implemented + tested | 110 assertions pass under the standalone Luau CLI |
 | Content set (4 temples, 16 relics, 4 trap kinds, guardians) | Implemented + tested | Config-integrity tests validate spawns, visuals, trap kinds, guardians, tutorial steps, audio, and the unlock chain |
 | Persistence (DataStore, schema v4 migrations, conflict guard) | Implemented, not run against live DataStore | Logic reviewed + migration tested; Studio/live run pending |
 | Networking (single `Request` action channel + `State`/`Event` streams) | Implemented + validated (build) | Server + client wired |
-| World generation (unified ground, hub, connecting avenues, temples, plots) | Implemented + validated (build) | `GroundBuilder` lays one solid ground plane flush with every structure; `PathBuilder` builds marble avenues from the hub to each plot and temple; `WorldBuilder` composes ground → hub → temples → avenues |
+| World generation (unified ground, hub, connecting avenues, temples, plots) | Implemented + validated (build) | `GroundBuilder` lays a rounded-rectangle ground slab (1300 x 2180, 300-stud corners) flush with every structure; `PathBuilder` builds marble avenues from the hub to each plot and temple; `WorldBuilder` composes ground → hub → temples → avenues |
+| Horizon scenery (forest belt + layered rocky escarpment) | Implemented + tested (domain/config) | `SceneryLayout` decides a 299-tree grove and a 119-block rock rim with 60 crest blocks (777 decorative parts, budget 800); the belt is measured to the canopy edge and sits 30-60 studs beyond the playable content; the rim stands close behind the grove, is gapless around the whole footprint and varies in height and depth; trees clear the temples, hub and plot ring and may border the avenues; decorative parts never collide, query, touch or cast shadows; the new footprint, grove belt, escarpment rim and the fall-and-respawn edge were playtested in Studio by the owner (Session A, rows A6-A9) |
 | Museum wings + building enhancements (ADR 0010) | Implemented + tested (domain/config) | Three cosy grand wings within a 90x90 footprint (Foyer 90x90x16, Hall 80x56x14, Vault 76x52x14), human-scale 1.5-stud walls and 2x2 pillars, slim 8-stud inter-wing gaps, gated by `MuseumFloor`; marble walls/crown molding, arched entries, tiled floors, coffered ceilings with spotlights; staggered pedestal alcoves; floating label cards; glass-dome locked indicator; 5 visual upgrades; per-rarity pedestal tiers; plots rebuilt fresh each session (stale `MuseumPlots` cleared); pure rules in `MuseumBuilder`; in-Studio geometry not yet playtested |
 | Server services (17 domain services) | Implemented + validated (build) | Includes `MonetizationService`, `GuardianService`, `TutorialService`; see `docs/ARCHITECTURE.md` |
 | Client UI (top bar, HUD, 5 panels, summaries, prompts, tutorial objective) | Implemented + validated (build) | Keyboard + touch + gamepad path wired |
@@ -43,7 +44,7 @@ partially verified.
 | Monetization (Welcome Back offer, VIP Pass, Instant Revive) | Implemented, stub IDs | Flow + policy documented (`docs/MONETIZATION.md`); real Product/Pass IDs and a live purchase test pending |
 | Static analysis | Implemented + validated | `selene`: 0 errors / 0 warnings |
 | Type check (pure modules) | Implemented + validated | `luau-analyze src/shared` clean |
-| Automated logic tests | Implemented + validated | `luau tests/run_tests.luau` — 95 assertions |
+| Automated logic tests | Implemented + validated | `luau tests/run_tests.luau` — 110 assertions |
 | Exploit-resistance tests (input validation, rate limiting, save conflict guard) | Implemented + tested | Pure `Validate` / `RateLimiter` / `Persist` modules extracted from the hot path |
 | Persistence failure-mode tests (load outcome, retry bounds) | Implemented + tested | Pure `Persist.loadOutcome`/`retryBackoff`; matrix in `docs/DATA_MODEL.md` |
 | Network contract tests (action registry + data shapes) | Implemented + tested | Pure `Contracts` module; drift guard against `docs/API_CONTRACTS.md` |
@@ -63,7 +64,7 @@ All commands were run from the repository root on Windows.
 rojo build default.project.json -o <out>.rbxlx   -> Built project ... (success)
 stylua --check .                                 -> no diff
 selene src tests                                 -> 0 errors, 0 warnings, 0 parse errors
-luau tests/run_tests.luau                         -> 95 passed, 0 failed
+luau tests/run_tests.luau                         -> 110 passed, 0 failed
 luau tests/bench.luau                             -> report (see docs/PERFORMANCE.md)
 luau-analyze src/shared/Domain src/shared/Config  -> no output (clean)
 ```
@@ -120,7 +121,7 @@ confirmed here and the Guardian fix in particular still needs a replay:
   empty-handed and short-haul extractions show the objective-incomplete feedback
   and do not advance `minExtractions` gates.
 - The endgame Void Citadel: it builds, appears on a hub portal, unlocks at 4
-  extractions + 5000 gold, and its `void` geometry renders (ADR 0011).
+  extractions + 10000 gold, and its `void` geometry renders (ADR 0011).
 - The Instant Revive flow end-to-end: the offer after a death in Sunken Sanctum /
   Void Citadel, a real Developer Product purchase through `ProcessReceipt`, the
   in-place revive, and the decline/expiry path (ADR 0011, FR-028).

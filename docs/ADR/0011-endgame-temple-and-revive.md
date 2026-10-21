@@ -95,3 +95,14 @@ Product, so it is in scope, alongside the existing Welcome Back / VIP products
   server-authoritative through `ProcessReceipt` (ADR 0001).
 - **A separate "Health Crystals" hazard mechanic.** Rejected as scope creep; the
   Instant Revive reuses the existing death pipeline with a single defer point.
+
+## Amendments
+
+- **Economy rebalance (M2).** Relic `incomePerMinute` values quoted above are
+  superseded: the economy pass scaled every relic's museum income down ~5x
+  (Eye of the Void `700 → 140/min`; total `2326 → 465/min`) and lowered
+  `ExtractionValueToGold` `0.25 → 0.15`, so a successful Citadel run still pays
+  the largest single payout (~9000 gold) but passive income no longer trivially
+  out-earns active play. The Citadel's unlock price also rose `5000 → 10000`.
+  `src/shared/Config/GameConfig.luau` remains the source of truth; see the
+  "Balance status" section of `docs/GAME_BALANCE.md`.

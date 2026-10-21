@@ -12,9 +12,12 @@ intent; the config is the source of truth.
   per-minute rate is capped at `5000/min` (`~83.3/sec`) before conversion.
 - While online, income auto-deposits every second. While offline it caps at the
   4-hour offline window (`24h` for VIP Pass holders) and at the pending ceiling
-  (`50000`, or `200000` for VIP), and is held for the Welcome Back modal. The
-  free 1x claim grants it as-is; the 199-Robux 2x doubles that one payout.
-- Extraction converts carried relic value to gold at `25%`.
+  (`5000`, or `20000` for VIP), and is held for the Welcome Back modal. The
+  free 1x claim grants it as-is; the 199-Robux 2x doubles that one payout. Both
+  ceilings sit below the total progression sinks (unlocks + all upgrades, ~46k
+  gold) so idle play can never buy out the game; the
+  "total progression costs exceed the offline caps" test enforces this.
+- Extraction converts carried relic value to gold at `15%`.
 
 ## Carrying
 
@@ -34,14 +37,14 @@ intent; the config is the source of truth.
 | --- | --- | --- | --- | --- |
 | Tutorial Ruins | free | 5:00 | 1 | one dart trap, one boulder (softened tell: 26 dmg, 2.4 s) |
 | Forgotten Catacombs | 1 extraction + 500 gold | 6:00 | 2 | two dart traps, one boulder, one Stone Guardian, tighter paths |
-| Sunken Sanctum | 2 extractions + 1500 gold | 7:00 | 3 | two whirling blades, one dart trap, one boulder, two guardians (one faster) |
-| Void Citadel | 4 extractions + 5000 gold | 8:00 | 3 | two void darts, two rift blades, a collapsing star, three Void Wardens (one faster Rift Keeper) |
+| Sunken Sanctum | 2 extractions + 4000 gold | 7:00 | 3 | two whirling blades, one dart trap, one boulder, two guardians (one faster) |
+| Void Citadel | 4 extractions + 10000 gold | 8:00 | 3 | two void darts, two rift blades, a collapsing star, three Void Wardens (one faster Rift Keeper) |
 
 ### Extraction credit
 
 An extraction only counts toward the next temple's `minExtractions` gate when
 the player extracts at least that temple's `requiredRelics` count
-(`RunRules.extractionCredit`). Gold from the 25% stipend is always paid, even
+(`RunRules.extractionCredit`). Gold from the 15% stipend is always paid, even
 on a short or empty-handed haul; the progression gate is not. This closes the
 walk-in walk-out farm at the spawn-adjacent extraction altar.
 
@@ -77,7 +80,7 @@ self-cooldown, so they cannot chain-stun. There is no reward for a guardian; the
 are a positional hazard within the escape loop.
 
 Relic values span 90 (Clay Ankh) to 40000 (Eye of the Void), with income
-90..700/min for the Abyssal top end.
+1..140/min per exhibit (465/min fully collected) for the Abyssal top end.
 
 Blades are rotating sweep hazards. A blade spins at `speed` rad/s; a player
 within `hitRadius` of the blade's swept line (checked on the horizontal plane
@@ -130,5 +133,21 @@ are suppressed and the game stays fully playable.
 
 ## Balance status
 
-Numbers are a first pass chosen for a readable solo slice. They have **not** been
-tuned against playtest data; expect to revise after the first Studio session.
+The economy has been rebalanced (M2) around three enforced targets, each
+covered by tests in `tests/run_tests.luau`:
+
+- **Active beats passive.** A max-capacity Void Citadel run earns ~9000 gold in
+  ~8 minutes (~1100-3600 g/min depending on clear speed), while the fully
+  collected museum earns 465/min (~511/min with the level-2 floor bonus) —
+  roughly 14% of an endgame run. Extraction conversion is `15%` of relic value.
+- **Unlock band.** Each temple's gold gate costs 1.2-6 runs of the previous
+  tier's best max-capacity haul (actual: Catacombs 2.4, Sanctum 1.5, Void
+  Citadel 3.3 runs), so progression is gated by skill (extractions) and
+  persistence (gold), never by one lucky run.
+- **Sinks beat offline caps.** Total progression costs (unlocks 14500 + all
+  upgrades ~32135 = ~46635 gold) exceed both pending ceilings (5000 standard,
+  20000 VIP), so idle play can supplement but never complete progression.
+
+Estimated full completion (all temples unlocked, best relics collected, all
+upgrades bought) is ~3-4 hours of active play. These numbers have not yet been
+tuned against playtest data; expect to revise after Studio sessions.
