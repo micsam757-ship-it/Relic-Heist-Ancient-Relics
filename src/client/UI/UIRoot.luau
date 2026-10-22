@@ -34,6 +34,10 @@ local goldBase = 0
 local goldBaseAt = 0
 local goldRate = 0
 
+-- The stamina pool as last reported by the server. The client never changes
+-- it; it only draws it.
+local staminaState = nil
+
 -- The timer only needs whole-second resolution and the weight bar only needs to
 -- feel responsive, so 10 Hz is plenty. Refreshing every Heartbeat would spam
 -- string formatting and tween creation for no visible benefit.
@@ -208,7 +212,7 @@ function UIRoot.build(playerGui: Instance)
 
 	refs.hud = Components.panel(screen, {
 		Name = "ExpeditionHud",
-		Size = UDim2.fromOffset(300, 168),
+		Size = UDim2.fromOffset(300, 206),
 		Position = UDim2.fromOffset(18, 74),
 		Color = Theme.Color.Panel,
 		Radius = Theme.Radius.Medium,
@@ -253,11 +257,25 @@ function UIRoot.build(playerGui: Instance)
 		Size = UDim2.new(1, -24, 0, 20),
 		Position = UDim2.fromOffset(12, 104),
 	})
+	Components.label(refs.hud, {
+		Name = "StaminaCaption",
+		Text = "Stamina  •  hold Shift to sprint",
+		Font = Theme.Font.Body,
+		TextSize = 12,
+		TextColor = Theme.Color.TextMuted,
+		Size = UDim2.new(1, -24, 0, 16),
+		Position = UDim2.fromOffset(12, 124),
+	})
+	refs.hudStaminaBar = Components.bar(refs.hud, {
+		Size = UDim2.new(1, -24, 0, 16),
+		Position = UDim2.fromOffset(12, 140),
+		FillColor = Theme.Color.Success,
+	})
 	Components.button(refs.hud, {
 		Name = "Abandon",
 		Text = "Abandon Expedition",
 		Size = UDim2.new(1, -24, 0, 34),
-		Position = UDim2.fromOffset(12, 128),
+		Position = UDim2.fromOffset(12, 160),
 		Color = Theme.Color.DangerDeep,
 		OnClick = function()
 			Net.send("AbandonExpedition")
@@ -491,9 +509,37 @@ function UIRoot.tick(deltaTime: number?)
 			ratio > 0.85 and Theme.Color.Danger or (ratio > 0.6 and Theme.Color.Warning or Theme.Color.Cyan)
 		)
 		refs.hudCarried.Text = string.format("Relics: %d / %d", expedition.remainingRelics, snapshot.maxCarried)
+		if staminaState ~= nil then
+			local staminaMax = staminaState.max or 0
+			local staminaRatio = staminaMax > 0 and ((staminaState.current or 0) / staminaMax) or 0
+			refs.hudStaminaBar.set(
+				staminaRatio,
+				string.format("%d / %d", math.floor(staminaState.current or 0), math.floor(staminaMax))
+			)
+			refs.hudStaminaBar.setColor(
+				staminaState.exhausted and Theme.Color.Danger
+					or (staminaRatio < 0.3 and Theme.Color.Warning or Theme.Color.Success)
+			)
+		else
+			refs.hudStaminaBar.set(0, "")
+		end
 	elseif refs.hud.Visible then
 		refs.hud.Visible = false
 	end
+end
+
+-- Called when the server reports the stamina pool.
+function UIRoot.setStamina(data)
+	if data == nil then
+		staminaState = nil
+		return
+	end
+	staminaState = {
+		current = tonumber(data.current) or 0,
+		max = tonumber(data.max) or 0,
+		sprinting = data.sprinting == true,
+		exhausted = data.exhausted == true,
+	}
 end
 
 -- Welcome Back offline-earnings modal. The free 1x claim is always offered; the

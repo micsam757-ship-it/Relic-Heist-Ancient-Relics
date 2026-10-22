@@ -9,6 +9,8 @@ local Progression = require("../src/shared/Domain/Progression")
 local RunRules = require("../src/shared/Domain/RunRules")
 local Schema = require("../src/shared/Domain/Schema")
 local SceneryLayout = require("../src/shared/Domain/SceneryLayout")
+local Stamina = require("../src/shared/Domain/Stamina")
+local Stats = require("../src/shared/Domain/Stats")
 local Tutorial = require("../src/shared/Domain/Tutorial")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Util = require("../src/shared/Utilities/Util")
@@ -62,10 +64,6 @@ test("upgradeCost scales with level and caps at max", function()
 	assertEquals(Economy.upgradeCost(upgrade, upgrade.maxLevel), nil, "maxed returns nil")
 end)
 
-test("armorMaxHealth adds per level", function()
-	assertEquals(Economy.armorMaxHealth(100, 20, 3), 160, "health at level 3")
-end)
-
 test("pedestalCount clamps to maximum", function()
 	assertEquals(Economy.pedestalCount(4, 2, 2, 2, 1, 8), 8, "clamped")
 	assertEquals(Economy.pedestalCount(4, 0, 2, 0, 1, 8), 4, "base only")
@@ -89,25 +87,148 @@ test("extractionBonus floors value to gold", function()
 	assertEquals(Economy.extractionBonus(1001, 0.25), 250, "floor of 250.25")
 end)
 
--- Encumbrance --------------------------------------------------------------
+-- Stats --------------------------------------------------------------------
 
 test("capacity grows with backpack level", function()
-	assertEquals(Encumbrance.capacity(GameConfig.Movement, 0), 40, "base")
-	assertEquals(Encumbrance.capacity(GameConfig.Movement, 2), 80, "two levels")
+	assertEquals(Stats.capacity(GameConfig.StatConfig, {}, {}), 40, "base")
+	assertEquals(Stats.capacity(GameConfig.StatConfig, { Backpack = 2 }, {}), 80, "two levels")
 end)
 
 test("multiplier clamps at floor and never exceeds one", function()
-	assertEquals(Encumbrance.multiplier(0, GameConfig.Movement, 0), 1, "empty")
+	assertEquals(Stats.speedMultiplier(0, GameConfig.Movement, 0), 1, "empty")
 	assertEquals(
-		Encumbrance.multiplier(100000, GameConfig.Movement, 0),
+		Stats.speedMultiplier(100000, GameConfig.Movement, 0),
 		GameConfig.Movement.MinSpeedMultiplier,
 		"clamped"
 	)
 end)
 
 test("walkSpeed scales from base", function()
-	assertEquals(Encumbrance.walkSpeed(0, GameConfig.Movement, 0), GameConfig.Movement.BaseWalkSpeed, "full speed")
+	assertEquals(Stats.walkSpeed(0, GameConfig.Movement, 0), GameConfig.Movement.BaseWalkSpeed, "full speed")
 end)
+
+test("resolved stats with no upgrades or training match the pre-training values", function()
+	local stats = Stats.resolve(GameConfig.StatConfig, {}, {})
+	assertEquals(stats.capacity, 40, "base capacity")
+	assertEquals(stats.maxHealth, 100, "base health")
+	assertEquals(stats.weightPenaltyReduction, 0, "no reduction")
+	assertEquals(stats.staminaMax, GameConfig.Stamina.BaseMax, "base stamina")
+	assertEquals(stats.staminaDrainPerSecond, GameConfig.Stamina.BaseDrainPerSecond, "base drain")
+end)
+
+test("training raises capacity, health-facing stats and stamina", function()
+	local trained = Stats.resolve(GameConfig.StatConfig, {}, { carrying = 3, stamina = 2, strength = 4 })
+	assertEquals(trained.capacity, 40 + 8 * 3, "carrying adds capacity")
+	assertEquals(trained.weightPenaltyReduction, 0.02 * 4, "strength softens the penalty")
+	assertEquals(trained.staminaMax, GameConfig.Stamina.BaseMax + 6 * 2, "stamina grows the pool")
+	assertEquals(
+		trained.staminaDrainPerSecond,
+		GameConfig.Stamina.BaseDrainPerSecond - 0.4 * 2,
+		"stamina lowers the drain"
+	)
+end)
+
+test("training levels are clamped to the attribute maximum", function()
+	local stats = Stats.resolve(GameConfig.StatConfig, {}, { carrying = 999 })
+	assertEquals(stats.capacity, 40 + 8 * GameConfig.Training.Attributes.carrying.MaxLevel, "clamped capacity")
+end)
+
+test("upgrades and training combine into one resolved value", function()
+	local stats = Stats.resolve(GameConfig.StatConfig, { Backpack = 1, Armor = 2, SprintBoots = 3 }, { carrying = 1 })
+	assertEquals(stats.capacity, 40 + 20 + 8, "backpack plus carrying")
+	assertEquals(stats.maxHealth, 100 + 20 * 2, "armor")
+	assertEquals(stats.weightPenaltyReduction, 0.04 * 3, "sprint boots")
+end)
+
+test("weight penalty reduction never exceeds the cap", function()
+	local stats = Stats.resolve(GameConfig.StatConfig, { SprintBoots = 5 }, { strength = 20 })
+	assertEquals(stats.weightPenaltyReduction, 0.2 + 0.4, "boots plus strength")
+	local capped = Stats.resolve(
+		GameConfig.StatConfig,
+		{ SprintBoots = 5 },
+		{ strength = 20 },
+		{ WeightPenaltyReduction = 1 }
+	)
+	assertEquals(capped.weightPenaltyReduction, 0.8, "capped")
+end)
+
+test("companion bonuses add to the resolved stats", function()
+	local base = Stats.resolve(GameConfig.StatConfig, {}, {})
+	local withCompanion = Stats.resolve(GameConfig.StatConfig, {}, {}, { Capacity = 5, MaxHealth = 25 })
+	assertEquals(withCompanion.capacity, base.capacity + 5, "capacity bonus")
+	assertEquals(withCompanion.maxHealth, base.maxHealth + 25, "health bonus")
+end)
+
+test("sprint speed is the walk speed times the sprint multiplier", function()
+	local walk = Stats.walkSpeed(40, GameConfig.Movement, 0)
+	assertEquals(
+		Stats.sprintSpeed(40, GameConfig.Movement, 0),
+		walk * GameConfig.Movement.SprintSpeedMultiplier,
+		"sprint"
+	)
+end)
+
+test("stamina drain never falls below the configured floor", function()
+	local stats = Stats.resolve(GameConfig.StatConfig, {}, { stamina = 20 })
+	assertEquals(stats.staminaDrainPerSecond, GameConfig.Stamina.BaseDrainPerSecond - 0.4 * 20, "reduced drain")
+	local floored = Stats.resolve(GameConfig.StatConfig, {}, { stamina = 20 }, { StaminaDrainReduction = 100 })
+	assertEquals(floored.staminaDrainPerSecond, GameConfig.Stamina.MinDrainPerSecond, "drain floor")
+end)
+
+-- Stamina ------------------------------------------------------------------
+
+local RULES = { drainPerSecond = 10, recoveryPerSecond = 5, recoverRatio = 0.25 }
+
+test("a fresh pool is full and ready to sprint", function()
+	local stamina = Stamina.new(100)
+	assertEquals(stamina.current, 100, "full pool")
+	assertFalse(stamina.exhausted, "not exhausted")
+	local started, ok = Stamina.startSprint(stamina)
+	assertTrue(ok, "sprint allowed")
+	assertTrue(started.sprinting, "sprinting")
+end)
+
+test("sprinting drains the pool and recovery refills it", function()
+	local stamina = Stamina.new(100)
+	stamina = Stamina.update(stamina, 2, RULES, true)
+	assertEquals(stamina.current, 80, "drained")
+	assertTrue(stamina.sprinting, "still sprinting")
+	stamina = Stamina.update(stamina, 4, RULES, false)
+	assertEquals(stamina.current, 100, "recovered to the cap")
+	assertFalse(stamina.sprinting, "no longer sprinting")
+end)
+
+test("running dry exhausts the player and blocks sprinting until recovery", function()
+	local stamina = Stamina.new(100)
+	stamina = Stamina.update(stamina, 20, RULES, true)
+	assertEquals(stamina.current, 0, "empty")
+	assertTrue(stamina.exhausted, "exhausted")
+	assertFalse(stamina.sprinting, "sprint stopped")
+	local _, ok = Stamina.startSprint(stamina)
+	assertFalse(ok, "sprint refused while exhausted")
+	stamina = Stamina.update(stamina, 5, RULES, false)
+	assertEquals(stamina.current, 25, "recovered to the clear ratio")
+	assertFalse(stamina.exhausted, "no longer exhausted")
+	local _, okAgain = Stamina.startSprint(stamina)
+	assertTrue(okAgain, "sprint allowed again")
+end)
+
+test("stamina never exceeds the pool or drops below zero", function()
+	local stamina = Stamina.new(100)
+	stamina = Stamina.update(stamina, 100, RULES, false)
+	assertEquals(stamina.current, 100, "capped at max")
+	stamina = Stamina.update(stamina, 100, RULES, true)
+	assertEquals(stamina.current, 0, "floored at zero")
+end)
+
+test("the stamina ratio reports the share left", function()
+	assertEquals(Stamina.ratio(Stamina.new(100)), 1, "full")
+	local stamina = Stamina.new(100)
+	stamina = Stamina.update(stamina, 5, RULES, true)
+	assertEquals(Stamina.ratio(stamina), 0.5, "half")
+end)
+
+-- Encumbrance --------------------------------------------------------------
 
 test("checkCapacity rejects overweight and over-count", function()
 	local ok, reason = Encumbrance.checkCapacity(39, 5, 40, 0, 10)
@@ -843,6 +964,7 @@ local DOCUMENTED_ACTIONS = {
 	"PurchaseOfflineDouble",
 	"RemoveRelic",
 	"RequestState",
+	"SetSprint",
 	"UnlockTemple",
 	"UpdateSettings",
 }
@@ -1355,7 +1477,7 @@ test("every relic definition spawns in at least one temple", function()
 end)
 
 test("requiredRelics is haulable with the fully upgraded backpack", function()
-	local maxCapacity = Encumbrance.capacity(GameConfig.Movement, GameConfig.Upgrades.Backpack.maxLevel)
+	local maxCapacity = Stats.capacity(GameConfig.StatConfig, { Backpack = GameConfig.Upgrades.Backpack.maxLevel }, {})
 	for templeId, temple in GameConfig.Temples do
 		local weight = RunRules.lightestHaulWeight(temple, GameConfig.Relics)
 		assertTrue(

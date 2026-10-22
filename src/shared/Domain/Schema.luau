@@ -3,7 +3,11 @@
 
 local Schema = {}
 
-Schema.CURRENT_VERSION = 4
+-- Upper bound for stored training experience. The design cap is the attribute
+-- maximum level; this only keeps a damaged profile from storing nonsense.
+local MAX_TRAINING_XP = 1000000
+
+Schema.CURRENT_VERSION = 5
 
 export type Profile = {
 	schemaVersion: number,
@@ -15,6 +19,8 @@ export type Profile = {
 	relics: { [string]: { id: string, acquiredAt: number } },
 	museum: { [string]: string },
 	upgrades: { [string]: number },
+	-- Passive training experience per attribute. Levels are derived from it.
+	training: { [string]: number },
 	unlockedTemples: { [string]: boolean },
 	lastIncomeClaimAt: number,
 	-- Offline income held until the player resolves the Welcome Back modal.
@@ -56,6 +62,7 @@ function Schema.createDefault(now: number, sessionId: string, startingGold: numb
 		stats = { extractions = 0, deaths = 0, relicsCollected = 0, incomeClaimed = 0 },
 		relics = {},
 		museum = {},
+		training = { strength = 0, stamina = 0, carrying = 0 },
 		upgrades = {
 			SprintBoots = 0,
 			Backpack = 0,
@@ -126,6 +133,22 @@ migrations[3] = function(profile, _now)
 	for _, id in { "MarblePillars", "Lighting", "GlassCases", "VelvetRopes", "Chandeliers" } do
 		if upgrades[id] == nil then
 			upgrades[id] = 0
+		end
+	end
+	return profile
+end
+
+migrations[4] = function(profile, _now)
+	-- v5 adds passive training. The experience starts empty for existing
+	-- profiles; any experience already stored is preserved.
+	local training: any = profile.training
+	if type(training) ~= "table" then
+		training = {}
+		profile.training = training
+	end
+	for _, attribute in { "strength", "stamina", "carrying" } do
+		if training[attribute] == nil then
+			training[attribute] = 0
 		end
 	end
 	return profile
@@ -220,6 +243,18 @@ function Schema.normalize(profile: Profile, now: number): Profile
 		end
 	end
 	profile.upgrades = upgrades
+
+	-- Training experience is kept per attribute. Unknown attributes are kept
+	-- as well so a profile written by a newer build never loses data here.
+	local training = safeTable(profile.training)
+	for attribute, xp in training do
+		if type(attribute) ~= "string" or type(xp) ~= "number" or xp ~= xp or xp == math.huge or xp == -math.huge then
+			training[attribute] = nil
+		else
+			training[attribute] = math.min(MAX_TRAINING_XP, math.max(0, math.floor(xp)))
+		end
+	end
+	profile.training = training
 
 	local temples = safeTable(profile.unlockedTemples)
 	for templeId, unlocked in temples do

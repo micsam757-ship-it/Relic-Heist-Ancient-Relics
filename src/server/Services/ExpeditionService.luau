@@ -6,8 +6,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
 local Contracts = require(ReplicatedStorage.Shared.Net.Contracts)
-local Encumbrance = require(ReplicatedStorage.Shared.Domain.Encumbrance)
 local Progression = require(ReplicatedStorage.Shared.Domain.Progression)
+local Stats = require(ReplicatedStorage.Shared.Domain.Stats)
+local StatsUtil = require(script.Parent.Parent.Utilities.StatsUtil)
 local PlayerUtil = require(script.Parent.Parent.Utilities.PlayerUtil)
 local Logger = require(script.Parent.Parent.Utilities.Logger)
 
@@ -65,11 +66,17 @@ function ExpeditionService:RecalculateMovement(player: Player)
 	if expedition == nil or humanoid == nil then
 		return
 	end
+	local stamina = state.ctx.Services.Stamina
+	if stamina ~= nil then
+		-- The stamina service owns the sprint speed and applies the walk or
+		-- sprint speed for the current weight.
+		stamina:ApplySpeed(player)
+		return
+	end
 	local profile = state.ctx.Services.PlayerData:GetProfile(player)
-	local bootsLevel = profile and (profile.upgrades.SprintBoots or 0) or 0
-	local reduction = bootsLevel * GameConfig.Upgrades.SprintBoots.perLevel
+	local reduction = StatsUtil.forProfile(profile).weightPenaltyReduction
 	local weight = ExpeditionService:GetCarriedWeight(player)
-	humanoid.WalkSpeed = Encumbrance.walkSpeed(weight, GameConfig.Movement, reduction)
+	humanoid.WalkSpeed = Stats.walkSpeed(weight, GameConfig.Movement, reduction)
 end
 
 function ExpeditionService:AddCarried(player: Player, definitionId: string, uid: string)
@@ -159,6 +166,11 @@ function ExpeditionService:RequestEnter(player: Player, templeId: string, source
 
 	player:SetAttribute("LastDamageSource", "")
 	root.CFrame = runtime.spawnCFrame
+	local stamina = state.ctx.Services.Stamina
+	if stamina ~= nil then
+		-- Every run starts with a full pool.
+		stamina:Reset(player)
+	end
 	ExpeditionService:RecalculateMovement(player)
 	state.ctx.Services.Relic:OnExpeditionStarted(player, templeId)
 

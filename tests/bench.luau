@@ -9,7 +9,9 @@
 local Economy = require("../src/shared/Domain/Economy")
 local Encumbrance = require("../src/shared/Domain/Encumbrance")
 local Inventory = require("../src/shared/Domain/Inventory")
+local Stats = require("../src/shared/Domain/Stats")
 local Util = require("../src/shared/Utilities/Util")
+local GameConfig = require("../src/shared/Config/GameConfig")
 local Contracts = require("../src/shared/Net/Contracts")
 local RateLimiter = require("../src/server/Security/RateLimiter")
 
@@ -54,7 +56,12 @@ local Upgrade = {
 	perLevel = 10,
 }
 
-local Movement = { BaseWalkSpeed = 16, MinSpeedMultiplier = 0.4, WeightPenaltyPerUnit = 0.025 }
+local Movement = {
+	BaseWalkSpeed = 16,
+	MinSpeedMultiplier = 0.4,
+	WeightPenaltyPerUnit = 0.025,
+	SprintSpeedMultiplier = 1.6,
+}
 
 -- A fully-laden satchel: the worst realistic case for weight math.
 local CARRIED = {}
@@ -106,8 +113,11 @@ print("-- shared tick: encumbrance (40 relics) --")
 bench("Encumbrance.totalWeight x40", 2000, function()
 	Encumbrance.totalWeight(CARRIED)
 end)
-bench("Encumbrance.walkSpeed x40", 2000, function()
-	Encumbrance.walkSpeed(100, Movement, 0.2)
+bench("Stats.walkSpeed x40", 2000, function()
+	Stats.walkSpeed(100, Movement, 0.2)
+end)
+bench("Stats.resolve", 4000, function()
+	Stats.resolve(GameConfig.StatConfig, { Backpack = 3 }, { carrying = 2, stamina = 1, strength = 1 })
 end)
 bench("Encumbrance.checkCapacity", 4000, function()
 	Encumbrance.checkCapacity(100, 3, 200, 12, 40)

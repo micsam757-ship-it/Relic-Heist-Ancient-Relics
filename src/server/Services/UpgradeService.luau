@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
 local Contracts = require(ReplicatedStorage.Shared.Net.Contracts)
 local Economy = require(ReplicatedStorage.Shared.Domain.Economy)
+local StatsUtil = require(script.Parent.Parent.Utilities.StatsUtil)
 local PlayerUtil = require(script.Parent.Parent.Utilities.PlayerUtil)
 
 local UpgradeService = {}
@@ -25,9 +26,7 @@ function UpgradeService:ApplyEffects(player: Player)
 	if humanoid == nil then
 		return
 	end
-	local armorLevel = profile.upgrades.Armor or 0
-	local maxHealth =
-		Economy.armorMaxHealth(GameConfig.Movement.BaseMaxHealth, GameConfig.Movement.ArmorHealthPerLevel, armorLevel)
+	local maxHealth = StatsUtil.forProfile(profile).maxHealth
 	humanoid.MaxHealth = maxHealth
 	if humanoid.Health > maxHealth then
 		humanoid.Health = maxHealth

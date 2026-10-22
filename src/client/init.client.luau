@@ -75,6 +75,8 @@ Net.onEvent(function(packet)
 		UIRoot.showRevivePrompt(data)
 	elseif name == "ReviveClosed" then
 		UIRoot.closeRevivePrompt()
+	elseif name == "Stamina" then
+		UIRoot.setStamina(data)
 	end
 end)
 

@@ -6,8 +6,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
-local Encumbrance = require(ReplicatedStorage.Shared.Domain.Encumbrance)
 local Economy = require(ReplicatedStorage.Shared.Domain.Economy)
+local Stats = require(ReplicatedStorage.Shared.Domain.Stats)
+local StatsUtil = require(script.Parent.Parent.Utilities.StatsUtil)
 local Inventory = require(ReplicatedStorage.Shared.Domain.Inventory)
 local MuseumBuilder = require(ReplicatedStorage.Shared.Domain.MuseumBuilder)
 local Progression = require(ReplicatedStorage.Shared.Domain.Progression)
@@ -53,7 +54,7 @@ function ViewService:Build(player: Player)
 	local floorLevel = upgrades.MuseumFloor or 0
 	local pedestalLevel = upgrades.ExtraPedestal or 0
 
-	local capacity = Encumbrance.capacity(movement, backpackLevel)
+	local capacity = StatsUtil.forProfile(profile).capacity
 	local pedestalCount = Economy.pedestalCount(
 		movement.BasePedestals,
 		floorLevel,
@@ -189,8 +190,8 @@ function ViewService:Build(player: Player)
 				})
 			end
 		end
-		local reduction = bootsLevel * GameConfig.Upgrades.SprintBoots.perLevel
-		local multiplier = Encumbrance.multiplier(totalWeight, movement, reduction)
+		local reduction = StatsUtil.forProfile(profile).weightPenaltyReduction
+		local multiplier = Stats.speedMultiplier(totalWeight, movement, reduction)
 		expedition = {
 			templeId = expeditionState.templeId,
 			templeName = temple and temple.name or expeditionState.templeId,
@@ -209,6 +210,20 @@ function ViewService:Build(player: Player)
 
 	local plot = services.Plot:GetPlot(player)
 	local ephemeral = services.PlayerData:IsEphemeral(player)
+
+	local stamina = nil
+	local staminaService = services.Stamina
+	if staminaService ~= nil then
+		local staminaState = staminaService:GetState(player)
+		if staminaState ~= nil then
+			stamina = {
+				current = staminaState.current,
+				max = staminaState.max,
+				sprinting = staminaState.sprinting,
+				exhausted = staminaState.exhausted,
+			}
+		end
+	end
 
 	return {
 		serverNow = now,
@@ -230,6 +245,7 @@ function ViewService:Build(player: Player)
 		},
 		capacity = capacity,
 		armorLevel = armorLevel,
+		stamina = stamina,
 		temples = temples,
 		expedition = expedition,
 		stats = profile.stats,

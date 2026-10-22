@@ -7,6 +7,8 @@
 local UserInputService = game:GetService("UserInputService")
 local ContextActionService = game:GetService("ContextActionService")
 
+local Net = require(script.Parent.Parent.Net)
+local State = require(script.Parent.Parent.State)
 local UIRoot = require(script.Parent.Parent.UI.UIRoot)
 
 local InputController = {}
@@ -27,6 +29,26 @@ local GAMEPAD_PANELS = {
 	[Enum.KeyCode.ButtonA] = "Inventory",
 }
 
+-- Sprinting is a hold: shift on keyboard, the left stick click on a gamepad.
+local SPRINT_KEYS = {
+	[Enum.KeyCode.LeftShift] = true,
+	[Enum.KeyCode.ButtonL3] = true,
+}
+
+-- Sprinting only applies inside an expedition, so the intent is only sent
+-- while a run is active.
+local function sprintAllowed(): boolean
+	local snapshot = State.get()
+	return snapshot ~= nil and snapshot.expedition ~= nil
+end
+
+local function setSprint(sprinting: boolean)
+	if not sprintAllowed() then
+		return
+	end
+	Net.send("SetSprint", { state = sprinting and "sprint" or "walk" })
+end
+
 function InputController.start()
 	UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		if gameProcessed then
@@ -39,6 +61,16 @@ function InputController.start()
 		end
 		if input.KeyCode == Enum.KeyCode.Escape then
 			UIRoot.closePanel()
+			return
+		end
+		if SPRINT_KEYS[input.KeyCode] then
+			setSprint(true)
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input, _gameProcessed)
+		if SPRINT_KEYS[input.KeyCode] then
+			setSprint(false)
 		end
 	end)
 

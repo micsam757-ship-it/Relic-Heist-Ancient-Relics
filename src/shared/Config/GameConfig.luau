@@ -149,11 +149,62 @@ GameConfig.Movement = {
 	BaseWalkSpeed = 19,
 	MinSpeedMultiplier = 0.35,
 	WeightPenaltyPerUnit = 0.008,
+	-- Sprinting is a temporary boost on top of the (weight penalised) walk
+	-- speed. It costs stamina, which the stamina service owns.
+	SprintSpeedMultiplier = 1.6,
 	BaseCapacity = 40,
 	BackpackCapacityPerLevel = 20,
 	BasePedestals = 6,
 	BaseMaxHealth = 100,
 	ArmorHealthPerLevel = 20,
+}
+
+-- Stamina rules. The pool and the drain are resolved by the stats resolver
+-- (which also folds in training levels), so these are the untouched baseline.
+GameConfig.Stamina = {
+	BaseMax = 100,
+	BaseDrainPerSecond = 14,
+	MinDrainPerSecond = 4,
+	RecoveryPerSecond = 9,
+	-- Share of the pool that has to come back before sprinting is allowed
+	-- again after running dry.
+	ExhaustedRecoveryRatio = 0.3,
+}
+
+-- Passive training. Players earn training experience by playing; levels are
+-- derived from that experience, never stored twice. Each attribute feeds the
+-- stats resolver: strength softens the movement penalty, stamina grows the
+-- pool and lowers the drain, carrying adds capacity.
+GameConfig.Training = {
+	Attributes = {
+		strength = {
+			MaxLevel = 20,
+			CapacityPerLevel = 0,
+			WeightPenaltyReductionPerLevel = 0.02,
+			StaminaMaxPerLevel = 0,
+			StaminaDrainReductionPerLevel = 0,
+		},
+		stamina = {
+			MaxLevel = 20,
+			CapacityPerLevel = 0,
+			WeightPenaltyReductionPerLevel = 0,
+			StaminaMaxPerLevel = 6,
+			StaminaDrainReductionPerLevel = 0.4,
+		},
+		carrying = {
+			MaxLevel = 20,
+			CapacityPerLevel = 8,
+			WeightPenaltyReductionPerLevel = 0,
+			StaminaMaxPerLevel = 0,
+			StaminaDrainReductionPerLevel = 0,
+		},
+	},
+	-- Experience awarded for playing. Nothing here is bought: the only way to
+	-- earn experience is to run expeditions.
+	Xp = {
+		PerRelicCollected = { carrying = 3, stamina = 1 },
+		PerExtraction = { strength = 6, stamina = 4, carrying = 2 },
+	},
 }
 
 GameConfig.Museum = {
@@ -1095,6 +1146,15 @@ GameConfig.Tutorial = {
 			complete = "exhibited",
 		},
 	},
+}
+
+-- The shape the stats resolver consumes. It is assembled here so every system
+-- resolves the same numbers from the same config.
+GameConfig.StatConfig = {
+	Movement = GameConfig.Movement,
+	Stamina = GameConfig.Stamina,
+	Upgrades = GameConfig.Upgrades,
+	Training = GameConfig.Training.Attributes,
 }
 
 return GameConfig

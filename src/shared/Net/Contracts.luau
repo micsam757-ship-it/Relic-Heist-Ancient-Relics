@@ -8,6 +8,8 @@ local Contracts = {}
 -- Each action declares the string fields its handler requires in `payload.data`.
 -- Actions whose handler reads no data omit `requires`. `requireProfile = false`
 -- mirrors the dispatcher option for actions callable before a profile loads.
+-- The contract only guarantees that a required field is present and a string;
+-- the handler still validates the value it accepts.
 export type ActionSpec = {
 	requires: { string }?,
 	requireProfile: boolean?,
@@ -17,6 +19,7 @@ local actions: { [string]: ActionSpec } = {
 	RequestState = { requireProfile = false },
 	EnterExpedition = { requires = { "templeId" } },
 	AbandonExpedition = {},
+	SetSprint = { requires = { "state" } },
 	BuyUpgrade = { requires = { "upgradeId" } },
 	UnlockTemple = { requires = { "templeId" } },
 	UpdateSettings = {},

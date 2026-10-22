@@ -1,5 +1,8 @@
 --!strict
 -- Pure economy calculations. No Roblox APIs.
+--
+-- Money only: upgrade prices, pedestals and income. The numbers behind
+-- capacity, movement and health live in the stats resolver.
 
 local Economy = {}
 
@@ -20,10 +23,6 @@ function Economy.upgradeCost(upgrade: UpgradeDefinition, currentLevel: number): 
 		return nil
 	end
 	return math.floor(upgrade.basePrice * upgrade.priceGrowth ^ level)
-end
-
-function Economy.armorMaxHealth(base: number, perLevel: number, level: number): number
-	return base + perLevel * math.max(0, level)
 end
 
 function Economy.pedestalCount(

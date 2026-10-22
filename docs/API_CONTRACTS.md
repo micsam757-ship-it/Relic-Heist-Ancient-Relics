@@ -30,6 +30,7 @@ matches this table exactly, so the two cannot drift. Each handler validates its
 | `RequestState` | - | Re-send a snapshot; allowed before profile load |
 | `EnterExpedition` | `{ templeId }` | Must be near the hub |
 | `AbandonExpedition` | - | Lose carried relics |
+| `SetSprint` | `{ state }` | Sprint intent; `state` is `sprint` or `walk`. Only applies inside an expedition |
 | `BuyUpgrade` | `{ upgradeId }` | |
 | `UnlockTemple` | `{ templeId }` | |
 | `UpdateSettings` | `{ soundEnabled?, visualEffects?, reducedMotion?, colorblindMode?, textScale? }` | `textScale` must be `Normal`/`Large`/`Huge` |
@@ -51,6 +52,7 @@ matches this table exactly, so the two cannot drift. Each handler validates its
   pedestalCount, exhibitedCount,
   upgrades = { SprintBoots, Backpack, Armor, MuseumFloor, ExtraPedestal },
   capacity, armorLevel,
+  stamina = nil | { current, max, sprinting, exhausted },
   temples = { { id, name, description, difficulty, order, unlocked, requirementsMet, canUnlock, minExtractions, unlockPrice, requiredRelics, durationSeconds, relicCount } },
   expedition = nil | { templeId, templeName, startedAt, endsAt, collapsing, carried, weight, capacity, speedMultiplier, requiredRelics, durationSeconds, remainingRelics },
   stats, settings, tutorialComplete,
@@ -77,6 +79,7 @@ matches this table exactly, so the two cannot drift. Each handler validates its
 | `ExpeditionSummary` | `{ success, credited?, title, subtitle, lines, relics?, lostRelics?, goldEarned? }` | `credited` = run counted toward `minExtractions` |
 | `PedestalSelected` | `{ pedestalId, plotIndex }` | Empty pedestal activated |
 | `RelicCollected` | `{ definitionId, rarity }` | |
+| `Stamina` | `{ current, max, sprinting, exhausted }` | Stamina pool while it changes |
 | `Damage` | `{ amount, source, health, maxHealth }` | |
 | `HazardWarning` | `{ label, kind, warningSeconds }` | Telegraph before a trap fires |
 | `HazardFired` | `{ label, kind }` | Trap resolved |

@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
 local Encumbrance = require(ReplicatedStorage.Shared.Domain.Encumbrance)
+local StatsUtil = require(script.Parent.Parent.Utilities.StatsUtil)
 local RelicVisuals = require(script.Parent.Parent.World.RelicVisuals)
 local Ids = require(script.Parent.Parent.Utilities.Ids)
 local PlayerUtil = require(script.Parent.Parent.Utilities.PlayerUtil)
@@ -139,7 +140,7 @@ function RelicService:TryCollect(player: Player, entry)
 	end
 
 	local currentWeight = expedition:GetCarriedWeight(player)
-	local capacity = Encumbrance.capacity(GameConfig.Movement, profile.upgrades.Backpack or 0)
+	local capacity = StatsUtil.forProfile(profile).capacity
 	local ok, reason = Encumbrance.checkCapacity(
 		currentWeight,
 		definition.weight,
