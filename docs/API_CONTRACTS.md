@@ -32,6 +32,9 @@ matches this table exactly, so the two cannot drift. Each handler validates its
 | `AbandonExpedition` | - | Lose carried relics |
 | `SetSprint` | `{ state }` | Sprint intent; `state` is `sprint` or `walk`. Only applies inside an expedition |
 | `BuyUpgrade` | `{ upgradeId }` | |
+| `BuyCompanion` | `{ companionId }` | Spend gold; the first companion auto-equips |
+| `EquipCompanion` | `{ companionId }` | Must be owned; replaces the current companion |
+| `UnequipCompanion` | - | Clears the single equipped slot |
 | `UnlockTemple` | `{ templeId }` | |
 | `UpdateSettings` | `{ soundEnabled?, visualEffects?, reducedMotion?, colorblindMode?, textScale? }` | `textScale` must be `Normal`/`Large`/`Huge` |
 | `PlaceRelic` | `{ pedestalId, uid }` | Near the pedestal |
@@ -53,6 +56,13 @@ matches this table exactly, so the two cannot drift. Each handler validates its
   upgrades = { SprintBoots, Backpack, Armor, MuseumFloor, ExtraPedestal },
   capacity, armorLevel,
   stamina = nil | { current, max, sprinting, exhausted },
+  training = { [attribute] = { level, maxLevel, xp, intoLevel, neededForNext, ratio, maxed } },
+  companions = {
+    owned = { [companionId] = true },
+    equipped = nil | companionId,
+    maxEquipped,
+    goldMultiplier,
+  },
   temples = { { id, name, description, difficulty, order, unlocked, requirementsMet, canUnlock, minExtractions, unlockPrice, requiredRelics, durationSeconds, relicCount } },
   expedition = nil | { templeId, templeName, startedAt, endsAt, collapsing, carried, weight, capacity, speedMultiplier, requiredRelics, durationSeconds, remainingRelics },
   stats, settings, tutorialComplete,

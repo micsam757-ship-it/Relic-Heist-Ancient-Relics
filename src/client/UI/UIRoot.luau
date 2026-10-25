@@ -57,6 +57,7 @@ local DESKTOP_NAV_BUTTON_SIZE = UDim2.fromOffset(104, 40)
 local PANEL_TITLES = {
 	Expeditions = "Expeditions",
 	Shop = "Museum Shop",
+	Companions = "Relic Companions",
 	Inventory = "Relic Inventory",
 	Museum = "Museum Layout",
 	Settings = "Settings",
@@ -165,8 +166,8 @@ function UIRoot.build(playerGui: Instance)
 	local nav = Instance.new("Frame")
 	nav.Name = "Nav"
 	nav.BackgroundTransparency = 1
-	nav.Size = UDim2.fromOffset(560, 44)
-	nav.Position = UDim2.new(1, -580, 0, 8)
+	nav.Size = UDim2.fromOffset(680, 44)
+	nav.Position = UDim2.new(1, -700, 0, 8)
 	nav.Parent = topBar
 	local navLayout = Instance.new("UIListLayout")
 	navLayout.FillDirection = Enum.FillDirection.Horizontal
@@ -178,6 +179,7 @@ function UIRoot.build(playerGui: Instance)
 	local navEntries = {
 		{ name = "Expeditions", key = "E" },
 		{ name = "Shop", key = "B" },
+		{ name = "Companions", key = "C" },
 		{ name = "Inventory", key = "I" },
 		{ name = "Museum", key = "M" },
 		{ name = "Settings", key = "O" },

@@ -25,6 +25,8 @@ local services = {
 	Progression = require(script.Services.ProgressionService),
 	Settings = require(script.Services.SettingsService),
 	Tutorial = require(script.Services.TutorialService),
+	Training = require(script.Services.TrainingService),
+	Companion = require(script.Services.CompanionService),
 	Expedition = require(script.Services.ExpeditionService),
 	Stamina = require(script.Services.StaminaService),
 	Hazard = require(script.Services.HazardService),
@@ -62,6 +64,8 @@ local initOrder = {
 	"Progression",
 	"Settings",
 	"Tutorial",
+	"Training",
+	"Companion",
 	"Plot",
 	"Museum",
 	"Relic",
@@ -82,6 +86,7 @@ local startOrder = {
 	"Progression",
 	"Settings",
 	"Tutorial",
+	"Training",
 	"Plot",
 	"Museum",
 	"Hazard",
@@ -89,6 +94,7 @@ local startOrder = {
 	"Extraction",
 	"Stamina",
 	"Expedition",
+	"Companion",
 	"Admin",
 }
 

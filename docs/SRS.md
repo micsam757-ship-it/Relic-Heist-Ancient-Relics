@@ -127,6 +127,25 @@ referenced by `docs/traceability/requirements-matrix.md`.
   normally. All grants are server-authoritative through `ProcessReceipt`, and an
   unconfigured product id suppresses the offer so the game stays playable. See
   `docs/ADR/0011-endgame-temple-and-revive.md`.
+- **FR-029** Sprinting is a hold-to-run option inside expeditions. The client
+  sends only its intent (`SetSprint`); the server owns a finite stamina pool,
+  drains it while the player moves and sprints, recovers it otherwise, and
+  refuses sprinting until the configured share has recovered after running dry.
+  Every run starts with a full pool, leaving a run restores the default speed,
+  and the HUD shows the pool. See `docs/ADR/0012-stamina-stats-training.md`.
+- **FR-030** Passive training lets players earn experience for relics collected,
+  successful extractions, and time spent inside a temple. Levels are derived
+  from stored experience (never stored twice) and feed the single effective-stat
+  resolver: Strength reduces the weight penalty, Stamina grows/lowers the sprint
+  pool drain, and Carrying adds capacity. Training is never purchasable. See
+  `docs/ADR/0012-stamina-stats-training.md`.
+- **FR-031** Relic Companions are a three-definition roster bought with gold.
+  The server owns purchases, one equipped slot, and all bonus calculations;
+  bonuses feed the shared effective-stat resolver instead of duplicating a stat,
+  and the gold multiplier applies to museum income and extraction stipends.
+  Ownership and the equipped id persist in schema v6. The client shows owned and
+  equipped state and disables unaffordable recruits. See
+  `docs/ADR/0013-companions.md`.
 
 ## Data requirements
 

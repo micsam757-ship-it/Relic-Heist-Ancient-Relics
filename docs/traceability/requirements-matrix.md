@@ -19,7 +19,7 @@ Status legend:
 | --- | --- | --- |
 | FR-001 enter temple | `ExpeditionService:RequestEnter`, `HubBuilder` portals | Validated (build); Studio boot |
 | FR-002 collect relic | `RelicService:TryCollect`, occupancy-scoped pools via `OnExpeditionStarted`/`OnExpeditionEnded`, `RunRules.spawnPlan` | Tested (spawn-plan + coverage integrity); Validated (build); Studio (collect path) |
-| FR-003 weight slows | `Encumbrance.multiplier/walkSpeed`, `ExpeditionService:RecalculateMovement` | Tested |
+| FR-003 weight slows | `Stats.speedMultiplier/walkSpeed`, `Encumbrance.checkCapacity`, `ExpeditionService:RecalculateMovement` | Tested |
 | FR-004 countdown/warnings | `ExpeditionService` timer loop | Validated (build); Manual-only |
 | FR-005 extraction | `ExtractionService`, `TempleBuilder` altar, `RunRules.extractionCredit` | Tested (credit rule); Studio (extraction confirmed) |
 | FR-006 death/abandon loss | `ExpeditionService:onDeath`, `AbandonExpedition` | Validated (build); Manual-only |
@@ -46,6 +46,9 @@ Status legend:
 | FR-026 Void Citadel endgame temple | `GameConfig.Temples.VoidCitadel`, Abyssal relics in `GameConfig.Relics`, `void` theme in `TempleBuilder.THEMES`, `HubBuilder` (order slot) | Tested (temple/relic/unlock integrity); Validated (build); Manual-only (geometry) |
 | FR-027 aggressive guardian chase through stealth | `GameConfig.Enemies` (AggroLingerSeconds, HuntSeconds, Chase.SpeedMultiplier), `GameConfig.Enemies.Kinds.VoidWarden`, `GuardianService` last-known-position hunt | Tested (tuning + kind integrity); Validated (build); Manual-only (playtest) |
 | FR-028 Instant Revive product | `GameConfig.Monetization` (InstantReviveProductId, ReviveTempleIds), `MonetizationService` (offer/grant/receipt), `ExpeditionService` (pendingRevive, RevivePlayer/ResolveDeath), `UIRoot.showRevivePrompt`, `Contracts` actions | Tested (config + contracts); Validated (build); Manual-only (purchase) |
+| FR-029 sprint stamina | `GameConfig.Stamina/Movement`, `Stamina` (pool rules), `StaminaService` (server pool, speed, push), `InputController` (Shift/L3 intent), `Contracts.SetSprint`, `UIRoot` stamina bar | Tested (domain + tuning); Validated (build); Manual-only (in-session sprint) |
+| FR-030 passive training + stat resolver | `GameConfig.Training/StatConfig`, `Training` (curve/levels), `Stats` (effective stats), `StatsUtil`, `TrainingService` (relic/extraction/temple-time hooks), `Schema` v5, `ViewService.training`, `Panels.Settings` | Tested (curve, clamping, resolver, temple XP, migration); Validated (build); Manual-only (in-session awards) |
+| FR-031 relic companions | `GameConfig.Companions`, `Companions` (ownership/equip/bonuses), `CompanionService`, `Stats/StatsUtil` (bonus consumer), `Schema` v6, `ViewService.companions`, `Panels.Companions`, `Contracts` actions | Tested (domain, bonuses, schema v6, config, contracts); Validated (build); Manual-only (purchase/equip in session) |
 
 ## Non-functional requirements
 

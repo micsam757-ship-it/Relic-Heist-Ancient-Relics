@@ -9,11 +9,11 @@
 
 ## Layout
 
-- **Top bar**: gold (auto-updating), income rate, and five nav buttons
-  (`Expeditions`, `Shop`, `Inventory`, `Museum`, `Settings`).
+- **Top bar**: gold (auto-updating), income rate, and six nav buttons
+  (`Expeditions`, `Shop`, `Companions`, `Inventory`, `Museum`, `Settings`).
 - **Expedition HUD** (left, only during an expedition): temple name, escape
   countdown (or `COLLAPSE`), weight bar with `weight / capacity` and speed
-  percent, carried count, abandon button.
+  percent, carried count, stamina bar (hold `Shift`/`L3` to sprint), abandon button.
 - **Toast stack** (top center): transient success/warning/error/info notices.
 - **Modal host**: one panel open at a time.
 - **Summary overlay**: post-expedition results (success, death, abandon).
@@ -54,13 +54,14 @@
 
 ## Input
 
-- Keyboard: `E` Expeditions, `B` Shop, `I` Inventory, `M` Museum, `O` Settings,
-  `Esc` close.
+- Keyboard: `E` Expeditions, `B` Shop, `C` Companions, `I` Inventory, `M` Museum,
+  `O` Settings, hold `Shift` to sprint inside an expedition, `Esc` close.
 - Pointer/touch: all of the above are also on-screen buttons, sized for touch on
   touch devices. No feature is keyboard-only.
 - Gamepad: `ButtonY` Expeditions, `ButtonX` Shop, `ButtonB` Museum, `ButtonA`
-  Inventory; Roblox's native Selectable focus navigation moves between buttons;
-  `ButtonB`/`Escape` close the active panel via `ContextActionService`.
+  Inventory; click `L3` to sprint inside an expedition; Roblox's native
+  Selectable focus navigation moves between buttons; `ButtonB`/`Escape` close
+  the active panel via `ContextActionService`.
 
 ## Responsive layout
 

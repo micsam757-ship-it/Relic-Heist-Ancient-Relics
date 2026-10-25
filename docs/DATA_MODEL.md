@@ -6,11 +6,11 @@
 - Key per player: `player_<UserId>`.
 - One record per player; written with `UpdateAsync`.
 
-## Profile schema (version 4)
+## Profile schema (version 6)
 
 ```lua
 {
-  schemaVersion = 4,
+  schemaVersion = 6,
   sessionId = "<guid>",        -- identifies the owning server session
   updatedAt = <unix seconds>,
   gold = 250,
@@ -19,6 +19,9 @@
   stats = { extractions = 0, deaths = 0, relicsCollected = 0, incomeClaimed = 0 },
   relics = { ["relic_<guid>"] = { id = "<DefinitionId>", acquiredAt = <unix> } },
   museum = { ["1"] = "relic_<guid>" },        -- pedestalId -> owned relic uid
+  training = { strength = 0, stamina = 0, carrying = 0 },  -- passive XP (v5)
+  companions = { SunScarab = true },        -- owned companion ids (v6)
+  equippedCompanion = "SunScarab",           -- one id, or nil (v6)
   upgrades = {
     SprintBoots = 0, Backpack = 0, Armor = 0, MuseumFloor = 0, ExtraPedestal = 0,
     -- visual museum-building enhancements (v4)
@@ -49,6 +52,20 @@
 - Museum entries pointing at missing uids, or reusing a uid, are removed.
 - Upgrade levels are non-negative integers; unknown keys are dropped from the
   strict set by the config consumer.
+- Training experience is a non-negative integer per attribute, capped at
+  `1000000`; non-numeric entries are dropped. Levels are always derived from the
+  experience, never stored alongside it.
+- The stamina pool itself is runtime state and is never persisted; every
+  expedition starts with a full pool resolved from training and upgrades.
+- Companion ownership is a `{ [id] = true }` map; entries whose value is not
+  exactly `true`, or whose key is not a string, are removed. Unknown ids are
+  preserved so data written by a newer build is not destroyed; unknown ids never
+  grant a bonus.
+- `equippedCompanion` is `nil` unless it is a non-empty string that is also
+  owned. At most one companion is equipped (`GameConfig.Companions.MaxEquipped`).
+  Companion bonuses and prices are derived from config, never stored.
+- Schema v6 adds the companion fields; existing profiles own none and have none
+  equipped.
 - `lastIncomeClaimAt <= now`.
 - `pendingOfflineGold >= 0`, integer.
 - `vip` is a boolean.
@@ -67,8 +84,23 @@ to v2 by `migrations[1]` (seeds `pendingOfflineGold = 0`, `vip = false`). Versio
 settings and `tutorialStep` while preserving any values already present. Version
 3 records are upgraded to v4 by `migrations[3]`, which seeds the five museum
 building enhancement upgrade keys at 0 while preserving existing upgrade levels.
-Records with a schema version newer than `CURRENT_VERSION` are rejected rather than
-rewritten.
+Version 4 records are upgraded to v5 by `migrations[4]`, which seeds the three
+training experience attributes at 0 and preserves any experience already stored.
+Version 5 records are upgraded to v6 by `migrations[5]`, which seeds an empty
+`companions` map and clears `equippedCompanion` when it is not a string, while
+preserving any companion data already present. Records with a schema version
+newer than `CURRENT_VERSION` are rejected rather than rewritten.
+
+## Profile size budget
+
+The DataStore value limit is 4 MiB (4,194,304 bytes) per key. The worst-case
+profile is bounded by the 100-relic archive cap: 100 relic entries with a
+`relic_<guid>` key, a definition id and a timestamp are roughly 10-15 KB
+serialized; the 14 museum assignments, settings, upgrades and training add well
+under 3 KB. Companion data is at most three boolean keys plus one id (tens of
+bytes), so the schema v6 addition does not materially change the budget. The
+overall worst case is comfortably below 25 KB, about 0.6% of the limit. Re-measure
+if the archive cap or stored per-relic data grows.
 
 ## Write policy
 

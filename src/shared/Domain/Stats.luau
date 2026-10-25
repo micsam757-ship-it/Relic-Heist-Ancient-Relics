@@ -60,6 +60,8 @@ export type CompanionBonuses = {
 	StaminaMax: number?,
 	StaminaDrainReduction: number?,
 	StaminaRecovery: number?,
+	-- Additive fraction: 0.1 means +10% gold earned.
+	GoldMultiplier: number?,
 }
 
 export type EffectiveStats = {
@@ -70,11 +72,16 @@ export type EffectiveStats = {
 	staminaDrainPerSecond: number,
 	staminaRecoveryPerSecond: number,
 	sprintSpeedMultiplier: number,
+	goldMultiplier: number,
 }
 
 -- The movement penalty can never be reduced by more than this share of the
 -- carried weight, no matter how many sources stack up.
 local MAX_WEIGHT_PENALTY_REDUCTION = 0.8
+
+-- Safety ceiling for gold bonuses, so a damaged profile cannot multiply income
+-- without bound. No shipped companion comes close to it.
+local MAX_GOLD_MULTIPLIER = 2
 
 local function levelOf(levels: Levels, id: string): number
 	return math.max(0, math.floor(levels[id] or 0))
@@ -190,6 +197,16 @@ function Stats.staminaRecoveryPerSecond(config: StatConfig, companions: Companio
 	return math.max(0, recovery)
 end
 
+-- Gold earned is multiplied by 1 + the companion bonus, never reduced and never
+-- above the safety ceiling.
+function Stats.goldMultiplier(companions: CompanionBonuses?): number
+	local bonus = 0
+	if companions ~= nil then
+		bonus = math.max(0, companions.GoldMultiplier or 0)
+	end
+	return math.clamp(1 + bonus, 1, MAX_GOLD_MULTIPLIER)
+end
+
 -- Resolves every derived stat from the sources that can raise it.
 function Stats.resolve(
 	config: StatConfig,
@@ -205,6 +222,7 @@ function Stats.resolve(
 		staminaDrainPerSecond = Stats.staminaDrainPerSecond(config, training, companions),
 		staminaRecoveryPerSecond = Stats.staminaRecoveryPerSecond(config, companions),
 		sprintSpeedMultiplier = config.Movement.SprintSpeedMultiplier,
+		goldMultiplier = Stats.goldMultiplier(companions),
 	}
 end
 

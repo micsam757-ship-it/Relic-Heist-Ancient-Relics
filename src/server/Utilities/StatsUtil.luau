@@ -10,6 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
 local Stats = require(ReplicatedStorage.Shared.Domain.Stats)
 local Training = require(ReplicatedStorage.Shared.Domain.Training)
+local Companions = require(ReplicatedStorage.Shared.Domain.Companions)
 
 local StatsUtil = {}
 
@@ -19,12 +20,19 @@ function StatsUtil.trainingLevels(profile): { [string]: number }
 	return Training.levels(experience, GameConfig.Training.Attributes)
 end
 
--- The effective stats for a profile: upgrades plus training.
+-- Additive bonuses from the single equipped companion, if any.
+function StatsUtil.companionBonuses(profile)
+	local equipped = profile and profile.equippedCompanion or nil
+	return Companions.bonuses(GameConfig.Companions.Definitions, equipped)
+end
+
+-- The effective stats for a profile: upgrades plus training plus companions.
 function StatsUtil.forProfile(profile)
 	return Stats.resolve(
 		GameConfig.StatConfig,
 		profile and profile.upgrades or {},
-		StatsUtil.trainingLevels(profile)
+		StatsUtil.trainingLevels(profile),
+		StatsUtil.companionBonuses(profile)
 	)
 end
 

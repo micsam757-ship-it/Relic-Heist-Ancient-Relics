@@ -4,6 +4,7 @@
 
 local Economy = require("../src/shared/Domain/Economy")
 local Encumbrance = require("../src/shared/Domain/Encumbrance")
+local Companions = require("../src/shared/Domain/Companions")
 local Inventory = require("../src/shared/Domain/Inventory")
 local Progression = require("../src/shared/Domain/Progression")
 local RunRules = require("../src/shared/Domain/RunRules")
@@ -11,6 +12,7 @@ local Schema = require("../src/shared/Domain/Schema")
 local SceneryLayout = require("../src/shared/Domain/SceneryLayout")
 local Stamina = require("../src/shared/Domain/Stamina")
 local Stats = require("../src/shared/Domain/Stats")
+local Training = require("../src/shared/Domain/Training")
 local Tutorial = require("../src/shared/Domain/Tutorial")
 local GameConfig = require("../src/shared/Config/GameConfig")
 local Util = require("../src/shared/Utilities/Util")
@@ -159,6 +161,13 @@ test("companion bonuses add to the resolved stats", function()
 	assertEquals(withCompanion.maxHealth, base.maxHealth + 25, "health bonus")
 end)
 
+test("gold multiplier is one by default and grows with a companion bonus", function()
+	assertEquals(Stats.resolve(GameConfig.StatConfig, {}, {}).goldMultiplier, 1, "no bonus")
+	assertEquals(Stats.goldMultiplier({ GoldMultiplier = 0.1 }), 1.1, "ten percent")
+	assertEquals(Stats.goldMultiplier({ GoldMultiplier = -5 }), 1, "never below one")
+	assertEquals(Stats.goldMultiplier({ GoldMultiplier = 99 }), 2, "capped at the safety ceiling")
+end)
+
 test("sprint speed is the walk speed times the sprint multiplier", function()
 	local walk = Stats.walkSpeed(40, GameConfig.Movement, 0)
 	assertEquals(
@@ -226,6 +235,122 @@ test("the stamina ratio reports the share left", function()
 	local stamina = Stamina.new(100)
 	stamina = Stamina.update(stamina, 5, RULES, true)
 	assertEquals(Stamina.ratio(stamina), 0.5, "half")
+end)
+
+-- Training -----------------------------------------------------------------
+
+test("training experience curve costs more each level", function()
+	assertEquals(Training.xpForLevel(0), 0, "level 0 costs nothing")
+	assertEquals(Training.xpForLevel(1), 100, "first level")
+	assertEquals(Training.xpForLevel(2), 250, "second level")
+	assertEquals(Training.xpForLevel(3), 450, "third level")
+	assertEquals(Training.levelForXp(99, 20), 0, "just short of level 1")
+	assertEquals(Training.levelForXp(100, 20), 1, "level 1 reached")
+	assertEquals(Training.levelForXp(249, 20), 1, "just short of level 2")
+	assertEquals(Training.levelForXp(250, 20), 2, "level 2 reached")
+end)
+
+test("training levels clamp to the attribute maximum", function()
+	assertEquals(Training.levelForXp(1000000, 3), 3, "clamped to max level")
+	local progress = Training.progress(1000000, 3)
+	assertTrue(progress.maxed, "reported as maxed")
+	assertEquals(progress.ratio, 0, "no progress bar while maxed")
+end)
+
+test("training progress reports the experience into the level", function()
+	local progress = Training.progress(300, 20)
+	assertEquals(progress.level, 2, "level 2")
+	assertEquals(progress.intoLevel, 50, "50 xp into the level")
+	assertEquals(progress.neededForNext, 200, "200 xp to level 3")
+	assertEquals(progress.ratio, 0.25, "quarter of the way")
+	assertFalse(progress.maxed, "not maxed")
+end)
+
+test("awarding experience caps at max and reports the gain", function()
+	local state: Training.TrainingState = { strength = 440 }
+	local updated, gained = Training.award(state, "strength", 100, 3)
+	assertEquals(gained, 10, "only the missing experience is gained")
+	assertEquals(updated.strength, 450, "capped at max experience")
+	local _, maxedGain = Training.award(updated, "strength", 50, 3)
+	assertEquals(maxedGain, 0, "no gain past max")
+end)
+
+test("awarding leaves the input state untouched", function()
+	local state: Training.TrainingState = { carrying = 0 }
+	local updated = Training.award(state, "carrying", 75, 20)
+	assertEquals(state.carrying, 0, "original unchanged")
+	assertEquals(updated.carrying, 75, "copy updated")
+end)
+
+test("training levels are derived for every configured attribute", function()
+	local levels = Training.levels({ strength = 250, stamina = 100 }, GameConfig.Training.Attributes)
+	assertEquals(levels.strength, 2, "strength level")
+	assertEquals(levels.stamina, 1, "stamina level")
+	assertEquals(levels.carrying, 0, "missing experience is level 0")
+end)
+
+test("training experience is earned, never bought", function()
+	local rewards = GameConfig.Training.Xp
+	for attribute, amount in rewards.PerRelicCollected do
+		assertTrue(amount > 0, attribute .. " relic reward is positive")
+	end
+	for attribute, amount in rewards.PerExtraction do
+		assertTrue(amount > 0, attribute .. " extraction reward is positive")
+	end
+	assertTrue(rewards.PerExtraction.strength > 0, "extractions train strength")
+	for attribute, amount in rewards.PerTempleMinute do
+		assertTrue(amount > 0, attribute .. " temple-time reward is positive")
+	end
+end)
+
+-- Companions ---------------------------------------------------------------
+
+local COMPANION_DEFINITIONS = GameConfig.Companions.Definitions
+
+test("companion bonuses resolve from the equipped definition", function()
+	local bonuses = Companions.bonuses(COMPANION_DEFINITIONS, "SunScarab")
+	assertEquals(bonuses.GoldMultiplier, 0.1, "gold bonus")
+	local guardian = Companions.bonuses(COMPANION_DEFINITIONS, "StoneGuardian")
+	assertEquals(guardian.Capacity, 20, "capacity bonus")
+	assertEquals(guardian.StaminaMax, 20, "stamina bonus")
+end)
+
+test("an unknown or missing companion grants no bonus", function()
+	assertEquals(next(Companions.bonuses(COMPANION_DEFINITIONS, nil)), nil, "none equipped")
+	assertEquals(next(Companions.bonuses(COMPANION_DEFINITIONS, "Missing")), nil, "unknown id")
+	local stats = Stats.resolve(GameConfig.StatConfig, {}, {}, Companions.bonuses(COMPANION_DEFINITIONS, "Missing"))
+	assertEquals(stats.goldMultiplier, 1, "resolved stats ignore unknown ids")
+end)
+
+test("a companion can only be equipped when it is owned", function()
+	local owned = { SunScarab = true }
+	local current, ok, reason = Companions.equip(owned, nil, "TempleHound")
+	assertFalse(ok, "unowned rejected")
+	assertEquals(current, nil, "nothing equipped")
+	assertTrue(type(reason) == "string", "reason provided")
+	local _, unknownOk = Companions.equip(owned, nil, "Missing")
+	assertFalse(unknownOk, "unknown id rejected")
+	local equipped, equippedOk = Companions.equip(owned, nil, "SunScarab")
+	assertTrue(equippedOk, "owned accepted")
+	assertEquals(equipped, "SunScarab", "equipped id")
+end)
+
+test("equipping swaps the single slot and unequip clears it", function()
+	local owned = { SunScarab = true, TempleHound = true }
+	local current = Companions.equip(owned, nil, "SunScarab")
+	assertEquals(current, "SunScarab", "first equipped")
+	local swapped, ok = Companions.equip(owned, current, "TempleHound")
+	assertTrue(ok, "swap accepted")
+	assertEquals(swapped, "TempleHound", "only one can be equipped")
+	assertEquals(Companions.unequip(), nil, "unequip clears the slot")
+end)
+
+test("companion bonuses stack with upgrades and training in one resolver", function()
+	local bonuses = Companions.bonuses(COMPANION_DEFINITIONS, "StoneGuardian")
+	local stats = Stats.resolve(GameConfig.StatConfig, { Backpack = 1 }, { carrying = 1 }, bonuses)
+	assertEquals(stats.capacity, 40 + 20 + 8 + 20, "all capacity sources")
+	local scarab = Stats.resolve(GameConfig.StatConfig, {}, {}, Companions.bonuses(COMPANION_DEFINITIONS, "SunScarab"))
+	assertEquals(scarab.goldMultiplier, 1.1, "scarab gold bonus reaches the resolver")
 end)
 
 -- Encumbrance --------------------------------------------------------------
@@ -376,6 +501,9 @@ test("total progression costs exceed the offline caps", function()
 		for level = 0, upgrade.maxLevel - 1 do
 			total += Economy.upgradeCost(upgrade, level) or 0
 		end
+	end
+	for _, companion in GameConfig.Companions.Definitions do
+		total += companion.cost
 	end
 	assertTrue(
 		total > GameConfig.Economy.VipMaxPendingIncome,
@@ -811,6 +939,44 @@ test("every audio sound has a volume and non-negative asset id", function()
 	assertTrue(GameConfig.Audio.MasterVolume > 0, "master volume is positive")
 end)
 
+test("companion definitions are well-formed and use known bonuses", function()
+	local knownBonuses = {
+		Capacity = true,
+		WeightPenaltyReduction = true,
+		MaxHealth = true,
+		StaminaMax = true,
+		StaminaDrainReduction = true,
+		StaminaRecovery = true,
+		GoldMultiplier = true,
+	}
+	assertEquals(GameConfig.Companions.MaxEquipped, 1, "one companion slot")
+	assertTrue(next(GameConfig.Companions.Definitions) ~= nil, "at least one companion")
+	for companionId, definition in GameConfig.Companions.Definitions do
+		assertTrue(type(companionId) == "string" and companionId ~= "", "companion id")
+		assertTrue(type(definition.name) == "string" and definition.name ~= "", companionId .. " needs a name")
+		assertTrue(
+			type(definition.description) == "string" and definition.description ~= "",
+			companionId .. " needs a description"
+		)
+		assertTrue(type(definition.summary) == "string" and definition.summary ~= "", companionId .. " needs a summary")
+		assertTrue(GameConfig.Rarities[definition.rarity] ~= nil, companionId .. " has an unknown rarity")
+		assertTrue(
+			type(definition.cost) == "number" and definition.cost > 0 and definition.cost % 1 == 0,
+			companionId .. " needs a positive whole gold cost"
+		)
+		local positive = 0
+		for field, value in definition.bonuses do
+			assertTrue(knownBonuses[field] == true, companionId .. " uses unknown bonus " .. tostring(field))
+			assertTrue(
+				type(value) == "number" and value > 0,
+				companionId .. " bonus " .. tostring(field) .. " must be positive"
+			)
+			positive += 1
+		end
+		assertTrue(positive > 0, companionId .. " needs at least one bonus")
+	end
+end)
+
 -- Exploit resistance: request payload validation (T-03) --------------------
 
 test("payload validation accepts only a table with a non-empty string action", function()
@@ -955,16 +1121,19 @@ end)
 -- docs, this test fails and points at the drift.
 local DOCUMENTED_ACTIONS = {
 	"AbandonExpedition",
+	"BuyCompanion",
 	"BuyUpgrade",
 	"ClaimOfflineIncome",
 	"DeclineInstantRevive",
 	"EnterExpedition",
+	"EquipCompanion",
 	"PlaceRelic",
 	"PurchaseInstantRevive",
 	"PurchaseOfflineDouble",
 	"RemoveRelic",
 	"RequestState",
 	"SetSprint",
+	"UnequipCompanion",
 	"UnlockTemple",
 	"UpdateSettings",
 }
@@ -1119,16 +1288,84 @@ test("every enhancement maps to a real visual upgrade", function()
 	end
 end)
 
-test("schema v3 profile migrates to v4 with enhancement keys seeded", function()
+test("schema v3 profile migrates to current with enhancement and training keys seeded", function()
 	local profile = Schema.createDefault(0, "s", 0)
 	profile.schemaVersion = 3
 	profile.upgrades = { SprintBoots = 1 }
 	local migrated, changed, err = Schema.migrate(profile, 0)
 	assertEquals(err, nil, "no migration error")
 	assertTrue(changed, "migration reported")
-	assertEquals(migrated.schemaVersion, 4, "bumped to current")
+	assertEquals(migrated.schemaVersion, Schema.CURRENT_VERSION, "bumped to current")
 	assertEquals(migrated.upgrades.MarblePillars, 0, "enhancement seeded")
 	assertEquals(migrated.upgrades.SprintBoots, 1, "existing upgrade preserved")
+	assertEquals(migrated.training.strength, 0, "training seeded")
+end)
+
+test("schema v4 profile gains training experience without losing progress", function()
+	local profile = Schema.createDefault(0, "s", 0)
+	profile.schemaVersion = 4
+	profile.training = nil
+	profile.upgrades.Chandeliers = 2
+	local migrated, changed, err = Schema.migrate(profile, 0)
+	assertEquals(err, nil, "no migration error")
+	assertTrue(changed, "migration reported")
+	assertEquals(migrated.schemaVersion, Schema.CURRENT_VERSION, "bumped to current")
+	assertEquals(migrated.training.stamina, 0, "stamina experience seeded")
+	assertEquals(migrated.upgrades.Chandeliers, 2, "enhancement level preserved")
+end)
+
+test("existing training experience survives migration", function()
+	local profile = Schema.createDefault(0, "s", 0)
+	profile.schemaVersion = 4
+	profile.training = { strength = 120 }
+	local migrated = Schema.migrate(profile, 0)
+	assertEquals(migrated.training.strength, 120, "strength experience preserved")
+	assertEquals(migrated.training.carrying, 0, "missing attribute seeded")
+end)
+
+test("normalize clamps training experience and preserves valid levels", function()
+	local profile = Schema.createDefault(0, "s", 0)
+	profile.training.strength = -40
+	profile.training.stamina = 1.9
+	profile.training.carrying = 2000000
+	profile.training.bogus = "nope"
+	local normalized = Schema.normalize(profile, 0)
+	assertEquals(normalized.training.strength, 0, "negative clamped")
+	assertEquals(normalized.training.stamina, 1, "fraction floored")
+	assertEquals(normalized.training.carrying, 1000000, "experience capped")
+	assertEquals(normalized.training.bogus, nil, "non-numeric removed")
+end)
+
+test("schema v5 profile gains companion fields without losing training", function()
+	local profile = Schema.createDefault(0, "s", 0)
+	profile.schemaVersion = 5
+	profile.companions = nil
+	profile.equippedCompanion = nil
+	profile.training = { strength = 120, stamina = 30, carrying = 15 }
+	local migrated, changed, err = Schema.migrate(profile, 0)
+	assertEquals(err, nil, "no migration error")
+	assertTrue(changed, "flagged as migrated")
+	assertEquals(migrated.schemaVersion, Schema.CURRENT_VERSION, "bumped to current")
+	assertTrue(type(migrated.companions) == "table", "companions seeded")
+	assertEquals(next(migrated.companions), nil, "no companion owned by default")
+	assertEquals(migrated.equippedCompanion, nil, "nothing equipped by default")
+	assertEquals(migrated.training.strength, 120, "strength experience preserved")
+	assertEquals(migrated.training.carrying, 15, "carrying experience preserved")
+end)
+
+test("normalize keeps owned companions and clears an unowned equipped id", function()
+	local profile = Schema.createDefault(0, "s", 0)
+	profile.companions = { SunScarab = true, TempleHound = false, [5] = true }
+	profile.equippedCompanion = "TempleHound"
+	local normalized = Schema.normalize(profile, 0)
+	assertEquals(normalized.companions.SunScarab, true, "owned companion kept")
+	assertEquals(normalized.companions.TempleHound, nil, "non-true ownership removed")
+	assertEquals(normalized.companions[5], nil, "non-string id removed")
+	assertEquals(normalized.equippedCompanion, nil, "unowned equipped id cleared")
+
+	normalized.equippedCompanion = "SunScarab"
+	local again = Schema.normalize(normalized, 0)
+	assertEquals(again.equippedCompanion, "SunScarab", "owned equipped id kept")
 end)
 
 test("normalize preserves enhancement upgrade levels", function()

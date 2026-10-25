@@ -7,6 +7,47 @@ major.minor.patch scheme while pre-1.0.
 
 ### Added
 
+- **Relic Companions** (FR-031, schema v6, ADR 0013): three gold-purchased
+  companions (`SunScarab`, `TempleHound`, `StoneGuardian`) with server-owned
+  ownership and a single equipped slot. `Companions` holds the pure ownership,
+  equip/replace, and bonus-aggregation rules; `CompanionService` validates and
+  rate-limits the three new actions, spends gold, applies effects, marks the
+  profile dirty, and pushes state. Bonuses feed the existing `Stats` resolver
+  through `StatsUtil`, including an additive gold multiplier (applied to museum
+  income and the extraction stipend) clamped to `[1, 2]`. A new
+  `Relic Companions` panel shows rarity, ownership, equipped state, and a
+  disabled-when-unaffordable Recruit button (`C` shortcut). Existing profiles
+  migrate to v6 with no companions and no equipped companion.
+- **Time-in-temple training XP** (FR-030): `GameConfig.Training.Xp.PerTempleMinute`
+  awards Strength and Stamina every minute spent inside a temple. A 5-second
+  server tick accrues fractional XP per player, awards only whole points, and
+  clears accrual when the player leaves. A training award now pushes a snapshot
+  so the Settings bars stay live between relics and extractions.
+- Server-authoritative **stamina and sprinting** (FR-029): the pure `Stamina`
+  domain module holds the pool, drain/recovery and exhaustion rules; the new
+  `StaminaService` owns the runtime pool, applies the sprint speed, and pushes a
+  `Stamina` event. The client only sends its hold intent through the new
+  `SetSprint` action (Shift on keyboard, L3 on gamepad), so the server decides
+  when sprinting applies. Sprinting is scoped to expeditions and every run
+  starts with a full pool. The expedition HUD gains a stamina bar.
+- A single **effective-stat resolver** (`src/shared/Domain/Stats.luau`) so
+  capacity, the weight speed penalty, maximum health and the stamina pool are
+  derived exactly once from upgrades, training and (future) companion bonuses.
+  `StatsUtil` bridges a stored profile to the resolver (training experience is
+  converted to derived levels in one place); `UpgradeService`, `ViewService`,
+  `RelicService` and `ExpeditionService` now read it instead of duplicating the
+  health/capacity math.
+- Passive **training** (schema v5): `Training` holds the experience curve and
+  derived levels, `GameConfig.Training` declares the Strength/Stamina/Carrying
+  attributes and the XP awarded for relics and extractions, and
+  `TrainingService` records experience and announces level-ups. Nothing is
+  bought: experience comes only from playing. Training feeds the stat resolver
+  (Strength reduces the weight penalty, Stamina grows the pool and lowers the
+  drain, Carrying adds capacity) and is shown in the Settings panel.
+- 22 new domain/config tests for stats, stamina, training, schema v5 and the
+  stamina tuning, plus companion, temple-XP, schema v6 and companion-config
+  tests - 141 assertions total.
+
 - Pure `Validate` module (`src/shared/Utilities/Validate.luau`) for request-payload
   shape checks, now used by `NetworkService` and unit tested (T-03).
 - Pure `Persist.canCommit` module (`src/shared/Utilities/Persist.luau`) for the
@@ -77,6 +118,12 @@ major.minor.patch scheme while pre-1.0.
 
 ### Changed
 
+- `ExpeditionService` and `RelicService` now resolve movement and capacity from
+  `StatsUtil`/`Stats`, so upgrades and training stack in one place. The museum
+  Settings panel lists the three training attributes with level/XP progress, plus
+  carry capacity.
+- The stamina pool resizes when a Stamina training level lands, keeping the
+  current fill ratio; the resolved pool and drain are re-applied on the next tick.
 - **World footprint and horizon redesigned.** The 3600 x 3600 square ground slab
   is replaced by a rounded rectangle (`GameConfig.World.Ground`: X -650..650,
   Z -640..1540, 300-stud corner radius) built from a central slab, four edge
@@ -114,6 +161,13 @@ major.minor.patch scheme while pre-1.0.
 
 ### Fixed
 
+- Leaving an expedition (extraction, abandon, or death) now restores the
+  character's default walk speed. Previously the last weight-penalised or sprint
+  speed could persist after the run ended until the next character respawn.
+- `TrainingService` was written but never registered in the server bootstrap, so
+  no training experience was awarded. It now starts with the other services and
+  is called from `RelicService`/`ExtractionService`, and its view is included in
+  the state snapshot.
 - `WhisperingMask` was defined but never spawned (its `templeIds` listed the
   Tutorial Ruins, whose `relicSpawns` did not include it). It now spawns in the
   Tutorial Ruins at x 22, z 64, and a test asserts every relic definition

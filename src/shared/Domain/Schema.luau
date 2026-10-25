@@ -7,7 +7,7 @@ local Schema = {}
 -- maximum level; this only keeps a damaged profile from storing nonsense.
 local MAX_TRAINING_XP = 1000000
 
-Schema.CURRENT_VERSION = 5
+Schema.CURRENT_VERSION = 6
 
 export type Profile = {
 	schemaVersion: number,
@@ -21,6 +21,10 @@ export type Profile = {
 	upgrades: { [string]: number },
 	-- Passive training experience per attribute. Levels are derived from it.
 	training: { [string]: number },
+	-- Relic companions owned by the player, keyed by definition id.
+	companions: { [string]: boolean },
+	-- The single equipped companion id, or nil when none is equipped.
+	equippedCompanion: string?,
 	unlockedTemples: { [string]: boolean },
 	lastIncomeClaimAt: number,
 	-- Offline income held until the player resolves the Welcome Back modal.
@@ -63,6 +67,8 @@ function Schema.createDefault(now: number, sessionId: string, startingGold: numb
 		relics = {},
 		museum = {},
 		training = { strength = 0, stamina = 0, carrying = 0 },
+		companions = {},
+		equippedCompanion = nil,
 		upgrades = {
 			SprintBoots = 0,
 			Backpack = 0,
@@ -150,6 +156,18 @@ migrations[4] = function(profile, _now)
 		if training[attribute] == nil then
 			training[attribute] = 0
 		end
+	end
+	return profile
+end
+
+migrations[5] = function(profile, _now)
+	-- v6 adds relic companions. Existing players own none and have none
+	-- equipped; any companion data already present is preserved.
+	if type(profile.companions) ~= "table" then
+		profile.companions = {}
+	end
+	if type(profile.equippedCompanion) ~= "string" then
+		profile.equippedCompanion = nil
 	end
 	return profile
 end
@@ -255,6 +273,21 @@ function Schema.normalize(profile: Profile, now: number): Profile
 		end
 	end
 	profile.training = training
+
+	-- Companion ownership is a boolean map. Unknown ids are kept so a profile
+	-- written by a newer build never loses data here; the resolver ignores ids
+	-- it does not know. The equipped id is kept only while it is still owned.
+	local companions = safeTable(profile.companions)
+	for companionId, owned in companions do
+		if type(companionId) ~= "string" or owned ~= true then
+			companions[companionId] = nil
+		end
+	end
+	profile.companions = companions
+	local equipped = profile.equippedCompanion
+	if type(equipped) ~= "string" or equipped == "" or companions[equipped] ~= true then
+		profile.equippedCompanion = nil
+	end
 
 	local temples = safeTable(profile.unlockedTemples)
 	for templeId, unlocked in temples do

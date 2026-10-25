@@ -30,6 +30,55 @@ intent; the config is the source of truth.
   penalty by `4%` per level; speed floors at `35%`.
 - Max 10 carried relics regardless of weight.
 - Owned relics cap at 100 per profile; overflow on extraction is lost by design.
+- The weight penalty can be reduced by at most 80% from all sources combined.
+
+## Stamina and sprinting
+
+- Base pool 100; sprinting drains 14/s and recovers 9/s while not sprinting.
+  Sprint is a `1.6x` multiplier on the current weight-penalised walk speed, so a
+  heavy haul is still slower than an empty sprint.
+- Running dry sets `exhausted`: sprinting is refused until 30% of the pool has
+  recovered. Sprinting is scoped to expeditions; every run starts with a full
+  pool and leaving a run restores the default walk speed.
+- The client only sends intent (`SetSprint`); the server owns the pool, the
+  exhaustion state, and the applied speed.
+
+## Passive training
+
+Training is earned by playing and never bought. Levels are derived from stored
+experience: level 1 costs 100 XP, and each further level costs 50 XP more than
+the previous one (100, 150, 200, ...), up to level 20 per attribute.
+
+| Attribute | Per level | Earned from |
+| --- | --- | --- |
+| Strength | `-2%` weight penalty (shares the 80% cap) | successful extractions (+6 XP), temple time (+2 XP/min) |
+| Stamina | `+6` max pool, `-0.4/s` drain | relics (+1 XP), extractions (+4 XP), temple time (+2 XP/min) |
+| Carrying | `+8` carry capacity | relics (+3 XP), extractions (+2 XP) |
+
+Temple-time XP accrues on a 5-second server tick and only whole points are
+awarded; the remainder carries to the next tick. Leaving the temple discards the
+fraction, so idling at the portal does not earn progress. A full 20 levels of
+Carrying adds 160 capacity on top of the backpack's 160, but the weight and
+10-relic caps still govern what a run can actually carry out.
+
+## Relic companions
+
+Companions are bought once with gold and persist. Exactly one may be equipped at
+a time (`MaxEquipped = 1`); recruiting the first one auto-equips it, and equipping
+another owned companion replaces it. Bonuses are additive and feed the same
+`Stats` resolver as upgrades and training.
+
+| Companion | Rarity | Cost | Effect |
+| --- | --- | --- | --- |
+| Sun Scarab | Rare | 1200 | `+10%` gold from museum income and extraction stipends |
+| Temple Hound | Rare | 1800 | `+3/s` stamina recovery, `-5%` weight penalty |
+| Stone Guardian | Legendary | 3000 | `+20` carry capacity, `+20` max stamina |
+
+The gold multiplier is applied as `floor(base * (1 + bonus))` to the extraction
+stipend and as a multiplier on museum income; the resolver clamps it to
+`[1, 2]`. Companion capacity still competes with the 10-relic collection cap, and
+the Hound's weight reduction shares the same 80% ceiling as Sprint Boots and
+Strength training. Total companion cost is 6000 gold.
 
 ## Temples
 
@@ -145,9 +194,10 @@ covered by tests in `tests/run_tests.luau`:
   Citadel 3.3 runs), so progression is gated by skill (extractions) and
   persistence (gold), never by one lucky run.
 - **Sinks beat offline caps.** Total progression costs (unlocks 14500 + all
-  upgrades ~32135 = ~46635 gold) exceed both pending ceilings (5000 standard,
-  20000 VIP), so idle play can supplement but never complete progression.
+  upgrades ~32135 + companions 6000 = ~52635 gold) exceed both pending ceilings
+  (5000 standard, 20000 VIP), so idle play can supplement but never complete
+  progression.
 
 Estimated full completion (all temples unlocked, best relics collected, all
-upgrades bought) is ~3-4 hours of active play. These numbers have not yet been
+upgrades and companions bought) is ~3-4 hours of active play. These numbers have not yet been
 tuned against playtest data; expect to revise after Studio sessions.

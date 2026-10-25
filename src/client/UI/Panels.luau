@@ -200,6 +200,94 @@ function Panels.Shop(body)
 	end
 end
 
+function Panels.Companions(body)
+	local scroll = Components.scroll(body, { Size = UDim2.fromScale(1, 1) })
+	return function(snapshot)
+		clear(scroll)
+		local companionView = snapshot.companions or { owned = {}, equipped = nil }
+		local owned = companionView.owned or {}
+		local equipped = companionView.equipped
+
+		local definitions = {}
+		for id, definition in GameConfig.Companions.Definitions do
+			table.insert(definitions, { id = id, definition = definition })
+		end
+		table.sort(definitions, function(a, b)
+			if a.definition.cost == b.definition.cost then
+				return a.id < b.id
+			end
+			return a.definition.cost < b.definition.cost
+		end)
+
+		for _, entry in definitions do
+			local definition = entry.definition
+			local isOwned = owned[entry.id] == true
+			local isEquipped = equipped == entry.id
+			local row = Components.panel(scroll, {
+				Size = UDim2.new(1, 0, 0, 110),
+				Color = Theme.Color.PanelAlt,
+				ClipsDescendants = true,
+			})
+			Components.badge(row, {
+				rarity = definition.rarity,
+				Position = UDim2.fromOffset(12, 10),
+			})
+			Components.label(row, {
+				Text = string.format("%s%s", definition.name, isEquipped and "  (Equipped)" or ""),
+				Font = Theme.Font.Heading,
+				TextSize = Theme.TextSize.Body,
+				TextColor = isEquipped and Theme.Color.Gold or Theme.Color.Text,
+				Size = UDim2.new(1, -200, 0, 26),
+				Position = UDim2.fromOffset(46, 8),
+			})
+			Components.label(row, {
+				Text = definition.summary,
+				TextSize = Theme.TextSize.Small,
+				TextColor = Theme.Color.Cyan,
+				Size = UDim2.new(1, -200, 0, 18),
+				Position = UDim2.fromOffset(46, 32),
+			})
+			Components.label(row, {
+				Text = definition.description,
+				TextSize = Theme.TextSize.Small,
+				TextColor = Theme.Color.TextMuted,
+				Size = UDim2.new(1, -200, 0, 44),
+				Position = UDim2.fromOffset(46, 52),
+				AlignY = Enum.TextYAlignment.Top,
+			})
+
+			if isOwned then
+				local label = isEquipped and "Unequip" or "Equip"
+				Components.button(row, {
+					Text = label,
+					Size = UDim2.fromOffset(130, 40),
+					Position = UDim2.new(1, -142, 0, 30),
+					Color = isEquipped and Theme.Color.PanelRaised or Theme.Color.CyanDeep,
+					OnClick = function()
+						if isEquipped then
+							Net.send("UnequipCompanion")
+						else
+							Net.send("EquipCompanion", { companionId = entry.id })
+						end
+					end,
+				})
+			else
+				local button = Components.button(row, {
+					Text = string.format("Recruit %s g", Util.formatNumber(definition.cost)),
+					Size = UDim2.fromOffset(130, 40),
+					Position = UDim2.new(1, -142, 0, 30),
+					Color = Theme.Color.GoldDeep,
+					TextColor = Theme.Color.Background,
+					OnClick = function()
+						Net.send("BuyCompanion", { companionId = entry.id })
+					end,
+				})
+				Components.setDisabled(button, snapshot.gold < definition.cost)
+			end
+		end
+	end
+end
+
 function Panels.Inventory(body, helpers)
 	local scroll = Components.scroll(body, { Size = UDim2.fromScale(1, 1) })
 	return function(snapshot)
@@ -486,6 +574,43 @@ function Panels.Settings(body)
 		statRow(scroll, "Relics collected", tostring(snapshot.stats.relicsCollected))
 		statRow(scroll, "Deaths", tostring(snapshot.stats.deaths))
 		statRow(scroll, "Museum income", string.format("+%.1f / sec", snapshot.incomePerSecond))
+		statRow(scroll, "Carry capacity", tostring(snapshot.capacity))
+
+		Components.label(scroll, {
+			Text = "Training",
+			Font = Theme.Font.Heading,
+			TextSize = Theme.TextSize.Body,
+			TextColor = Theme.Color.Gold,
+			Size = UDim2.new(1, 0, 0, 30),
+		})
+		Components.label(scroll, {
+			Text = "Earned by collecting relics and extracting hauls.",
+			TextSize = Theme.TextSize.Small,
+			TextColor = Theme.Color.TextMuted,
+			Size = UDim2.new(1, 0, 0, 20),
+		})
+		local trainingLabels = {
+			strength = "Strength",
+			stamina = "Stamina",
+			carrying = "Carrying",
+		}
+		if snapshot.training then
+			for _, attribute in { "strength", "stamina", "carrying" } do
+				local progress = snapshot.training[attribute]
+				if progress then
+					local value = progress.maxed and string.format("Lv %d (max)", progress.level)
+						or string.format(
+							"Lv %d/%d  •  %d/%d xp",
+							progress.level,
+							progress.maxLevel,
+							progress.intoLevel,
+							progress.neededForNext
+						)
+					statRow(scroll, trainingLabels[attribute] or attribute, value)
+				end
+			end
+		end
+
 		if snapshot.ephemeral then
 			Components.label(scroll, {
 				Text = "Studio preview: progress is not saved to a DataStore.",

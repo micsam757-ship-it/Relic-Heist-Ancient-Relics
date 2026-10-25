@@ -19,6 +19,10 @@ Exit criteria:
 
 - [done] Third temple `SunkenSanctum`, four new relics, and a new `blade`
   hazard - config-driven, plus config-integrity tests.
+- [done] Passive training, sprint stamina, the unified effective-stat resolver,
+  and temple-time XP.
+- [done] Relic Companions MVP: three gold-purchased companions, one equipped
+  slot, resolver-fed bonuses, schema v6, and a client panel.
 - Complete the Studio playtest checklist and record results.
 - Tune hazard timings and economy from playtest data.
 - Add audio cues behind `settings.soundEnabled`.

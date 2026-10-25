@@ -204,6 +204,43 @@ GameConfig.Training = {
 	Xp = {
 		PerRelicCollected = { carrying = 3, stamina = 1 },
 		PerExtraction = { strength = 6, stamina = 4, carrying = 2 },
+		-- Time spent inside a temple, awarded every minute (fractionally while
+		-- the run lasts). This rewards exploring and scouting, not just grabs.
+		PerTempleMinute = { strength = 2, stamina = 2 },
+	},
+}
+
+-- Relic companions. A companion is bought once with gold and one may be
+-- equipped at a time; its bonuses feed the same stats resolver as upgrades and
+-- training. Additive fields: `GoldMultiplier` is a fraction (0.1 = +10%), the
+-- rest are flat bonuses.
+GameConfig.Companions = {
+	MaxEquipped = 1,
+	Definitions = {
+		SunScarab = {
+			name = "Sun Scarab",
+			description = "A gilded beetle that circles its keeper, drawn to the gleam of treasure.",
+			summary = "Gold earnings +10%",
+			rarity = "Rare",
+			cost = 1200,
+			bonuses = { GoldMultiplier = 0.1 },
+		},
+		TempleHound = {
+			name = "Temple Hound",
+			description = "A tireless hound that scents safe footing and keeps its keeper moving.",
+			summary = "Stamina recovery +3/s, weight penalty -5%",
+			rarity = "Rare",
+			cost = 1800,
+			bonuses = { StaminaRecovery = 3, WeightPenaltyReduction = 0.05 },
+		},
+		StoneGuardian = {
+			name = "Stone Guardian",
+			description = "A miniature sentinel carved from temple bedrock. It carries what you cannot.",
+			summary = "Carrying capacity +20, stamina pool +20",
+			rarity = "Legendary",
+			cost = 3000,
+			bonuses = { Capacity = 20, StaminaMax = 20 },
+		},
 	},
 }
 

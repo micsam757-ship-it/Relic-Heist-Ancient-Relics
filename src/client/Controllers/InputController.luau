@@ -16,6 +16,7 @@ local InputController = {}
 local KEY_PANELS = {
 	[Enum.KeyCode.E] = "Expeditions",
 	[Enum.KeyCode.B] = "Shop",
+	[Enum.KeyCode.C] = "Companions",
 	[Enum.KeyCode.I] = "Inventory",
 	[Enum.KeyCode.M] = "Museum",
 	[Enum.KeyCode.O] = "Settings",

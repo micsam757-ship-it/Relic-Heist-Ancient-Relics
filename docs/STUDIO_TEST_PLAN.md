@@ -198,6 +198,25 @@ Requires real ids (see prerequisites).
 
 ---
 
+## Session L �?" Training, stamina, and companions
+
+Use `!rh_gold` to afford the companions; use `!rh_state` to check saved fields.
+
+| # | Check | Steps | Expected | Result |
+| --- | --- | --- | --- | --- |
+| L1 | Training award | Collect a relic and extract a qualifying haul | Carrying/Stamina rise on collection; Strength/Stamina/Carrying rise on extraction; the Settings panel XP bars update without reopening | |
+| L2 | Temple-time XP | Enter a temple and stand still for 70 seconds | Strength and Stamina each gain ~2 XP (whole points only); leaving discards the fraction, and re-entering does not grant a burst | |
+| L3 | Stamina pool resize | Reach a Stamina training level while in an expedition | The HUD max pool grows (keeping the current fill ratio) and the sprint drain is lower | |
+| L4 | Companion shop | Open Companions (`C`) with at least 3000 gold | Three rows show rarity, effect summary, cost, and Recruit buttons; unaffordable buttons are disabled | |
+| L5 | First purchase | Recruit Sun Scarab | Gold drops by 1200; the row shows Equipped; museum income rate and extraction stipend rise by 10% (summary adds a "Companion bonus" line) | |
+| L6 | Equip/swap | Recruit Temple Hound, then Equip it | Sun Scarab becomes owned/unequipped; movement weight penalty drops, stamina recovery rises; only one companion is equipped | |
+| L7 | Capacity/stamina | Recruit and equip Stone Guardian | Capacity and max stamina each increase by 20; the new capacity shows in the HUD and survives a rejoin | |
+| L8 | Unequip | Unequip the companion | Stats return to their pre-companion values; the effect is visible immediately, and no bonus remains | |
+| L9 | Persistence | Rejoin after buying/equipping | Ownership, equipped id, gold spent, and training XP are restored; schema is v6 and no unknown field is lost | |
+| L10 | Exploit checks | Send a Buy/Equip request for an unknown id, an unowned id, or an already-equipped id | Server refuses cleanly with a toast; no gold is spent and no bonus is applied | |
+
+---
+
 ## Results log
 
 Copy completed rows here (or straight into `docs/PROJECT_STATUS.md`):
@@ -215,3 +234,4 @@ Copy completed rows here (or straight into `docs/PROJECT_STATUS.md`):
 | I | | | | |
 | J | | | | |
 | K | | | | |
+| L | | | | |

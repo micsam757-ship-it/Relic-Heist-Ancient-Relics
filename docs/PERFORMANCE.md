@@ -22,22 +22,23 @@ machine it runs on; treat the numbers as a relative baseline, not absolutes.
 - Fixtures use the worst realistic load: a 40-relic satchel, a museum with all
   96 pedestals filled out of a 500-relic archive, and 20 guardians.
 
-## Baseline (2026-10-20, developer workstation)
+## Baseline (2026-10-23, developer workstation)
 
 | Benchmark | Work per call | us/call | calls/s |
 | --- | --- | --- | --- |
-| `Economy.incomeRatePerSecond` | one plot | 0.41 | 2,420,000 |
-| `Economy.pendingIncome` | one player | 0.14 | 7,040,000 |
-| `Encumbrance.totalWeight` | 40 relics | 1.55 | 647,000 |
-| `Encumbrance.walkSpeed` | — | 0.21 | 4,740,000 |
-| `Encumbrance.checkCapacity` | — | 0.11 | 8,816,000 |
-| `Economy.upgradeCost` | — | 0.19 | 5,327,000 |
-| `Economy.extractionBonus` | — | 0.12 | 8,682,000 |
-| `Inventory.countOwned` | 500 owned | 7.66 | 131,000 |
-| `Inventory.isExhibited` | 96-pedestal worst case | 1.86 | 536,000 |
-| `Util.distanceToSegment2D` | 20 guardians | 7.10 | 141,000 |
-| `Contracts.check` | — | 0.35 | 2,835,000 |
-| `RateLimiter:Allow` | — | 0.32 | 3,160,000 |
+| `Economy.incomeRatePerSecond` | one plot | 0.276 | 3,620,202 |
+| `Economy.pendingIncome` | one player | 0.265 | 3,767,531 |
+| `Encumbrance.totalWeight` | 40 relics | 3.580 | 279,351 |
+| `Stats.walkSpeed` | 40-relic satchel | 0.394 | 2,539,954 |
+| `Stats.resolve` | upgrades + training | 4.053 | 246,740 |
+| `Encumbrance.checkCapacity` | — | 0.327 | 3,054,682 |
+| `Economy.upgradeCost` | — | 0.511 | 1,957,701 |
+| `Economy.extractionBonus` | — | 0.201 | 4,984,460 |
+| `Inventory.countOwned` | 500 owned | 13.550 | 73,798 |
+| `Inventory.isExhibited` | 96-pedestal worst case | 3.400 | 294,110 |
+| `Util.distanceToSegment2D` | 20 guardians | 9.662 | 103,499 |
+| `Contracts.check` | — | 0.649 | 1,540,749 |
+| `RateLimiter:Allow` | — | 0.568 | 1,759,683 |
 
 ## Budget
 
@@ -48,13 +49,16 @@ must stay well under the 1s budget; the 0.5s timer likewise.
 | --- | --- | --- | --- |
 | Income tick | 1s | all plots of every player | < 50% of the 1s tick at 50 players |
 | Expedition / guardian timer | 0.5s | all live guardians | < 50% of the 0.5s tick |
+| Stamina tick | 0.1s | players with a runtime pool | < 50% of the 0.1s tick |
 | Save tick | periodic | dirty profiles only | must not block the frame |
 | Request admission | per request | validation + limiter | < 10 us |
 
 At the baseline above, the income tick for 50 players with 4 active plots each is
-about `50 x 4 x 0.41 us = 82 us` — four orders of magnitude under the 1s budget.
-`Inventory.countOwned` over a full 500-relic archive is the most expensive
-measured call (7.66 us) and only runs on archive mutations, not per tick.
+about `50 x 4 x 0.276 us = 55 us` — well under the 1s budget. The stamina tick
+resolves stats once per player every 0.1s (`Stats.resolve`, 4.05 us), so 50
+players cost roughly `50 x 4.05 us = 203 us` per 100ms tick. `Inventory.countOwned`
+over a full 500-relic archive is the most expensive measured call (13.55 us) and
+only runs on archive mutations, not per tick.
 
 ## Guardrails
 

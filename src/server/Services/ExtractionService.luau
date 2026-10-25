@@ -9,6 +9,7 @@ local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
 local Economy = require(ReplicatedStorage.Shared.Domain.Economy)
 local Inventory = require(ReplicatedStorage.Shared.Domain.Inventory)
 local RunRules = require(ReplicatedStorage.Shared.Domain.RunRules)
+local StatsUtil = require(script.Parent.Parent.Utilities.StatsUtil)
 local PlayerUtil = require(script.Parent.Parent.Utilities.PlayerUtil)
 local RateLimiter = require(script.Parent.Parent.Security.RateLimiter)
 local Logger = require(script.Parent.Parent.Utilities.Logger)
@@ -82,7 +83,9 @@ local function tryExtract(player: Player, templeId: string)
 		end
 	end
 
-	local bonus = Economy.extractionBonus(totalValue, GameConfig.Economy.ExtractionValueToGold)
+	local baseBonus = Economy.extractionBonus(totalValue, GameConfig.Economy.ExtractionValueToGold)
+	local goldMultiplier = StatsUtil.forProfile(profile).goldMultiplier
+	local bonus = math.floor(baseBonus * goldMultiplier)
 	profile.gold += bonus
 	-- Progression credit (counted toward the next temple's minExtractions
 	-- gate) requires hauling at least the temple's required relic count.
@@ -99,6 +102,9 @@ local function tryExtract(player: Player, templeId: string)
 	if services.Tutorial then
 		services.Tutorial:Advance(player, "extracted")
 	end
+	if services.Training and transferred > 0 then
+		services.Training:OnExtracted(player, transferred)
+	end
 
 	services.Expedition:EndExpedition(player)
 	services.PlayerData:MarkDirty(player)
@@ -109,6 +115,9 @@ local function tryExtract(player: Player, templeId: string)
 		table.insert(lootLines, string.format("Archive full — %d relic(s) left behind", lostOverflow))
 	end
 	table.insert(lootLines, string.format("Expedition stipend: %d gold", bonus))
+	if bonus > baseBonus then
+		table.insert(lootLines, string.format("Companion bonus: +%d gold", bonus - baseBonus))
+	end
 	if not credited and temple then
 		table.insert(
 			lootLines,
@@ -121,6 +130,7 @@ local function tryExtract(player: Player, templeId: string)
 		relics = transferred,
 		value = totalValue,
 		bonus = bonus,
+		goldMultiplier = goldMultiplier,
 		credited = credited,
 	})
 

@@ -65,12 +65,19 @@ function ViewService:Build(player: Player)
 	)
 
 	local exhibitedIncome, exhibitedCount = countExhibited(profile)
-	local incomeRate = Economy.incomeRatePerSecond(
-		exhibitedIncome,
-		floorLevel,
-		GameConfig.Museum.IncomePerMinuteFloorBonus,
-		GameConfig.Museum.MaxIncomeRatePerMinute
-	)
+	local incomeRate
+	if services.Economy and type(services.Economy.GetIncomeRate) == "function" then
+		-- The economy service owns the rate formula, including companion gold
+		-- bonuses, so the HUD and the deposit cannot disagree.
+		incomeRate = services.Economy:GetIncomeRate(profile)
+	else
+		incomeRate = Economy.incomeRatePerSecond(
+			exhibitedIncome,
+			floorLevel,
+			GameConfig.Museum.IncomePerMinuteFloorBonus,
+			GameConfig.Museum.MaxIncomeRatePerMinute
+		)
+	end
 
 	local relics = {}
 	for uid, owned in profile.relics do
@@ -225,6 +232,30 @@ function ViewService:Build(player: Player)
 		end
 	end
 
+	local training = nil
+	local trainingService = services.Training
+	if trainingService ~= nil then
+		training = trainingService:GetView(profile)
+	end
+
+	local companionDefinitions = GameConfig.Companions.Definitions
+	local ownedCompanions = {}
+	for companionId in profile.companions or {} do
+		if companionDefinitions[companionId] ~= nil then
+			ownedCompanions[companionId] = true
+		end
+	end
+	local equippedCompanion = profile.equippedCompanion
+	if equippedCompanion ~= nil and ownedCompanions[equippedCompanion] ~= true then
+		equippedCompanion = nil
+	end
+	local companions = {
+		owned = ownedCompanions,
+		equipped = equippedCompanion,
+		maxEquipped = GameConfig.Companions.MaxEquipped,
+		goldMultiplier = StatsUtil.forProfile(profile).goldMultiplier,
+	}
+
 	return {
 		serverNow = now,
 		gold = profile.gold,
@@ -246,6 +277,8 @@ function ViewService:Build(player: Player)
 		capacity = capacity,
 		armorLevel = armorLevel,
 		stamina = stamina,
+		training = training,
+		companions = companions,
 		temples = temples,
 		expedition = expedition,
 		stats = profile.stats,

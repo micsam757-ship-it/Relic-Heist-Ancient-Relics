@@ -70,10 +70,14 @@ function StaminaService:EnsureState(player: Player)
 		state.entries[player] = entry
 	elseif entry.stamina.max ~= stats.staminaMax then
 		-- The resolved pool changed (training or a new upgrade): resize the
-		-- current pool, keeping the same fill ratio.
-		local ratio = Stamina.ratio(entry.stamina)
-		entry.stamina = Stamina.new(stats.staminaMax)
-		entry.stamina.current = stats.staminaMax * ratio
+		-- current pool, keeping the same fill ratio and sprint/exhaustion state.
+		local previous = entry.stamina
+		local ratio = Stamina.ratio(previous)
+		local resized = Stamina.new(stats.staminaMax)
+		resized.current = stats.staminaMax * ratio
+		resized.exhausted = previous.exhausted
+		resized.sprinting = previous.sprinting
+		entry.stamina = resized
 	end
 	return entry
 end
@@ -174,7 +178,13 @@ local function tick()
 			end
 		end
 
-		StaminaService:ApplySpeed(player)
+		if inExpedition then
+			StaminaService:ApplySpeed(player)
+		elseif humanoid.WalkSpeed ~= GameConfig.Movement.BaseWalkSpeed then
+			-- Leaving a run (extraction, abandon, death) restores the default
+			-- walk speed; the expedition-specific speed only exists inside one.
+			humanoid.WalkSpeed = GameConfig.Movement.BaseWalkSpeed
+		end
 
 		if now - entry.lastPush >= PUSH_SECONDS then
 			pushStamina(player, entry)

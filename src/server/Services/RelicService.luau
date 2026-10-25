@@ -163,6 +163,9 @@ function RelicService:TryCollect(player: Player, entry)
 	if state.ctx.Services.Tutorial then
 		state.ctx.Services.Tutorial:Advance(player, "collectedRelic")
 	end
+	if state.ctx.Services.Training then
+		state.ctx.Services.Training:OnRelicCollected(player, 1)
+	end
 	state.ctx.Services.Network:Toast(player, "success", string.format("Collected %s.", definition.name))
 	state.ctx.Services.Network:PushEvent(player, "RelicCollected", {
 		definitionId = entry.definitionId,

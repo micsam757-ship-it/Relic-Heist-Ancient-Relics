@@ -34,6 +34,13 @@ snapshot. It never computes rewards, prices, damage, or ownership.
     - `RunRules` - expedition spawn plan, extraction credit, and the relic
       haulability invariant.
     - `Schema` - profile shape, versioned migrations, normalization.
+    - `Stamina` - sprint pool, drain/recovery and exhaustion rules.
+    - `Stats` - the single effective-stat resolver (capacity, weight penalty,
+      maximum health, stamina pool/drain, sprint multiplier, gold multiplier)
+      fed by upgrades, training and companion bonuses.
+    - `Training` - passive experience curve and derived attribute levels.
+    - `Companions` - companion ownership/equip rules and bonus aggregation for
+      the stat resolver.
    - `MuseumBuilder` - museum wing layout, pedestal placement/tiering, and
      building-enhancement levels (see `docs/ADR/0010-museum-expansion.md`).
    - `SceneryLayout` - the shape of the world: the rounded-rectangle geometry,
@@ -56,6 +63,17 @@ snapshot. It never computes rewards, prices, damage, or ownership.
    `OnExpeditionStarted`) and destroyed when the last leaves (`clearExpedition`
    calls `OnExpeditionEnded`) — so expeditions are replayable and a shared
    temple never shows stacked duplicate pickups.
+   `StaminaService` owns the runtime sprint pool (the server resolves the pool
+   and speed from `Stats`, never from client input) and `TrainingService` awards
+   passive experience on relic pickups, successful hauls, and time spent inside
+   a temple. Every derived number comes from `StatsUtil.forProfile`, which
+   converts stored training experience into the levels the `Stats` resolver
+   consumes and adds the equipped companion's bonuses.
+   `CompanionService` owns companion purchases and the single equipped slot.
+   It validates and rate-limits the `BuyCompanion`/`EquipCompanion`/
+   `UnequipCompanion` actions, moves gold through `Economy:Spend`, re-applies
+   health/stamina/movement effects, and never computes a companion stat itself:
+   the resolver does that from the equipped id.
 
 5. **Server / World** - builds the unified ground, hub, temples, connecting
    avenues, museum plots and the horizon scenery at runtime from `GameConfig`
@@ -79,16 +97,21 @@ snapshot. It never computes rewards, prices, damage, or ownership.
 `init.server.luau` performs, in order:
 
 1. `WorldBuilder.Build()` - geometry and runtime handles.
-2. `Init(ctx)` for every service.
+2. `Init(ctx)` for every service, in dependency order:
+   `Network, Analytics, View, PlayerData, Monetization, Economy, Upgrade,
+   Progression, Settings, Tutorial, Training, Companion, Plot, Museum, Relic,
+   Expedition, Hazard, Guardian, Extraction, Stamina, Admin`.
 3. Signal wiring: `ProfileLoaded/ProfileChanged/PlotAssigned/PlotReleased` push
    fresh state; hub kiosk prompts push `OpenPanel` events.
 4. `Start()` in dependency order:
    `Network, Analytics, Monetization, Economy, Upgrade, Progression, Settings,
-   Tutorial, Plot, Museum, Hazard, Guardian, Extraction, Expedition, Admin`
+   Tutorial, Training, Plot, Museum, Hazard, Guardian, Extraction, Stamina,
+   Expedition, Companion, Admin`
    (`RelicService` has no `Start()`; its pools spawn lazily on first entry).
    Monetization starts before Economy so the cached VIP entitlement is known when
    the offline cap is computed; Guardian starts after Hazard because it routes
-   contact damage through `HazardService:DamagePlayer`.
+   contact damage through `HazardService:DamagePlayer`; Companion starts after
+   Expedition so equip effects can recalculate movement.
 5. `PlayerDataService:Start()` last, so every `ProfileLoaded` listener exists
    before any player profile finishes loading.
 

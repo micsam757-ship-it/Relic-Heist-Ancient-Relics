@@ -7,15 +7,16 @@
 **Engine:** Roblox  
 **Language:** Luau  
 **Architecture:** Rojo-based development  
-**Status:** Phase 0 complete; checkpoint commit awaiting approval; Phase 2 next  
-**Last revised:** 2026-10-22 — fact corrections, roadmap re-order, Phase 2 decisions, persistence safeguards, issue verification  
+**Status:** Phase 2 complete; Phase 1 Relic Companions MVP implemented; checkpoint commit awaiting approval  
+**Last revised:** 2026-10-23 — Phase 2 completion and companion MVP status  
 **Primary goal:** Evolve the existing game without breaking working systems.
 
 > This revision corrects the verified facts in Section 2, re-orders the roadmap in
 > Section 8 to match the actual state of the repository, records the approved
 > Phase 2 decisions in Section 3, adds the data-persistence safeguards in
 > Section 6, and replaces the "reported" issue list in Section 9 with the
-> verification results. No Phase 2 code has been written yet.
+> verification results. Phase 2 and the Relic Companions MVP are now implemented;
+> the checkpoint commit is still pending approval.
 
 ---
 
@@ -50,20 +51,22 @@ The systems below were verified against the repository on 2026-10-22. Entries ma
 | Relic collection | 16 relic definitions | `GameConfig.Relics` |
 | Museum economy | Passive income from displayed relics | `Economy.incomeRatePerSecond` |
 | Upgrades | Player and museum upgrades (10 shop ids) | `GameConfig.Upgrades` |
-| Persistence | Player profiles with schema migrations, currently schema v4 | `Schema.CURRENT_VERSION = 4`, `Schema.migrations` |
+| Persistence | Player profiles with schema migrations, currently schema v6 | `Schema.CURRENT_VERSION = 6`, `Schema.migrations` |
 | Networking | `Request`, `State`, and `Event` RemoteEvents | `src/client/Net.luau:8-10` |
-| Tests | **110 assertions pass, 0 failures** | `luau tests/run_tests.luau`, 2026-10-22 |
+| Tests | **141 assertions pass, 0 failures** | `luau tests/run_tests.luau`, 2026-10-23 |
 | Toolchain | Rojo, Aftman, StyLua, Selene, Luau | Aftman toolchain, `scripts/check.ps1` |
 | CI | GitHub Actions exists at `.github/workflows/ci.yml`. It runs rojo build, StyLua, Selene, the test suite and `luau-analyze` on the pure modules. It does **not** run `scripts/check.ps1`, so the benchmark step and the full local gate are not covered by CI | `.github/workflows/ci.yml` |
 
-The previously reported "97 unit tests" figure was stale; the current suite asserts 110.
+The previously reported "97 unit tests" figure was stale; the current suite asserts 141.
 
 ### Repository state
 
 - Branch `main`, one commit ahead of `origin/main` (`9793459 feat: Replayable expeditions and server-authoritative extraction credit`). `origin` is `https://github.com/micsam757-ship-it/Relic-Heist-Ancient-Relics.git`.
 - **Tags** `checkpoint-pre-m1` (`d546a57`) and `checkpoint-pre-m2` (`9793459`, HEAD) exist. These are tags, not branches: `main` is the only local branch. There are no other tags and no stashes.
-- **13 tracked files are modified and 2 new source files are untracked.** They hold two reviewed work items: the map/horizon redesign and an economy rebalance (M2). They are uncommitted, so the existing tags do **not** protect them. See Section 10.
-- **Relic Companions have not been implemented.** There is no companion code, data, UI or test anywhere in the repository.
+- **The working tree holds uncommitted reviewed work:** the map/horizon redesign,
+  the M2 economy rebalance, the Phase 2 stamina/training/resolver slice, and the
+  Phase 1 companion MVP. The existing tags do **not** protect it. See Section 10.
+- **Relic Companions are implemented (MVP).** Ownership, one equipped slot, three definitions, resolver-fed bonuses, schema v6 persistence, server actions, a client panel, and domain/config/schema tests are in the working tree. Manual purchase/equip playtesting is still pending.
 - **The map redesign is substantially complete and must not be treated as a fresh redesign.** The ground is a rounded rectangle (X -650..650, Z -640..1540, 300-stud corner radius) with a 299-tree grove and a layered rocky escarpment (777 decorative parts against a ceiling of 800), covered by 12 map/scenery tests and manually playtested. Remaining map work is verification of material, lighting and landmark gaps only (Section 8, Phase 5).
 - **Phase 1 lighting is frozen.** `src/server/World/WorldBuilder.luau` holds the reviewed golden-hour lighting pass and must not be edited without re-approval and re-anchoring. Its anchor script lives **outside the repository**, in `%TEMP%` (`...\opencode\lighting_anchor.ps1`); it verifies the lighting-region hash `52350767...b2eac` and the whole-file hash `73f7ea4c...bbff`. Moving that script into `scripts/` is a separate, small task and is not part of any progression phase.
 - The **M2 economy rebalance** in the working tree is the current balance baseline: `ExtractionValueToGold` 0.25 → 0.15, relic `incomePerMinute` values reduced ~5x (total 2326 → 465/min), offline ceilings 50000 → 5000 and 200000 → 20000, and the SunkenSanctum / VoidCitadel unlock prices raised to 4000 / 10000. Upgrade costs are unchanged. Phase 2 must build on this baseline, not on the pre-M2 numbers.
@@ -76,7 +79,7 @@ These are the foundation. Existing behavior must remain intact unless a specific
 
 ### System A — Relic Companions
 
-**Status: not implemented. There is no companion code, data, UI or test in the repository.**
+**Status: implemented (MVP) and unit-tested; in-Studio purchase/equip verification pending. See `docs/ADR/0013-companions.md`.**
 
 Players discover and collect ancient companions that support their treasure hunts.
 
@@ -121,6 +124,15 @@ The MVP does not need every tier or a large collection immediately.
 - Companion-specific expedition abilities.
 
 **Out of scope for the MVP:** paid eggs, complicated fusion, trading, and a massive collection system.
+
+**Implemented decisions:** `SunScarab` 1200 gold (`+10%` gold from museum income and
+extraction), `TempleHound` 1800 gold (`+3/s` stamina recovery, `-5%` weight penalty),
+and `StoneGuardian` 3000 gold (`+20` capacity, `+20` stamina). Exactly one companion
+is equipped; the first purchase auto-equips. Ownership (boolean map) and the equipped
+id persist in schema v6. Bonuses feed `Stats` through `Companions.bonuses` and
+`StatsUtil`; the gold multiplier is clamped to `[1, 2]`. The server actions are
+`BuyCompanion`, `EquipCompanion`, and `UnequipCompanion`; the client panel is reachable
+from the top bar or `C`.
 
 ### System B — Hunter Training and Equipment
 
@@ -339,7 +351,7 @@ Their actual implementation must be inspected before any changes are made.
 
 Inspect the actual profile data structure, schema version, save process, and migration system.
 
-The reported schema version is 4, but this must be confirmed from source.
+The schema version is 6 (`Schema.CURRENT_VERSION`), after the v5 training and v6 companion migrations.
 
 Any future companion or prestige data must:
 
@@ -358,7 +370,7 @@ Do not choose a new schema version before inspecting the actual persistence code
 These apply to every system that adds fields to the saved profile.
 
 - **Inspect schema normalization and migration behavior before changing saved data.** `Schema.normalize` rebuilds `profile.stats` from a fixed list of known keys, so a new stat key that is not added to that list is silently dropped when the profile is loaded. New fields must be added to the schema, the migration chain and `normalize` together, and must be covered by a migration test that loads an older profile and asserts the new field survives a save/load round trip.
-- **Measure or estimate serialized profile size before adding bulk data.** The 100-relic cap already bounds the largest part of a profile; training data and future companion data must be added to that budget rather than assumed to be free. Record the estimate and the DataStore key limit it is measured against before the first field is added, and re-measure when companion data lands.
+- **Measure or estimate serialized profile size before adding bulk data.** The 100-relic cap already bounds the largest part of a profile; training data and future companion data must be added to that budget rather than assumed to be free. Record the estimate and the DataStore key limit it is measured against before the first field is added, and re-measure when companion data lands. The current estimate is recorded in `docs/DATA_MODEL.md` (under 25 KB worst case against a 4 MiB DataStore value limit).
 - **Keep prestige out of Phase 2.** Any later prestige work requires a written schema migration plan, an explicit reset whitelist (what resets and what survives) and migration/regression tests, all reviewed before any reset code is written.
 
 ### Testing requirements
@@ -454,7 +466,7 @@ The ground footprint, grove, escarpment and lighting work are implemented, revie
 
 ### Phase 2 — Hunter Training and Equipment
 
-**Status: next. The approved decisions are in Section 3, System B.**
+**Status: implemented and unit-tested; in-Studio verification pending. The approved decisions are in Section 3, System B.**
 
 - Build the shared effective-stat resolver and route the existing consumers through it.
 - Add server-authoritative stamina and sprinting. These are new mechanics, not reuse.
@@ -466,7 +478,7 @@ The ground footprint, grove, escarpment and lighting work are implemented, revie
 
 ### Phase 1 — Relic Companions MVP
 
-**Status: not started.**
+**Status: MVP implemented and unit-tested; in-Studio purchase/equip verification pending (ADR 0013).**
 
 - Implement three original companion definitions.
 - Add ownership and inventory rules.
@@ -593,13 +605,14 @@ Map improvements must also be evaluated visually in Roblox Studio, not solely th
 
 ## 12. Immediate Next Step
 
-**Approve and create the reviewed checkpoint commit for the current working tree — map/horizon redesign, M2 economy rebalance, documentation updates and this blueprint revision — and only then start the Phase 2 slice.**
+**Approve and create the reviewed checkpoint commit for the current working tree — map/horizon redesign, M2 economy rebalance, documentation updates and this blueprint revision — including the completed Phase 2 and companion MVP work.**
 
 Concretely:
 
 1. Review the proposed checkpoint file list and diff summary in Section 10.
-2. Approve the commit. The checkpoint must exist before Phase 2 code is written, so the Phase 2 work starts from a known-good point and the uncommitted redesign cannot be lost.
-3. Implement Phase 2 in small, testable steps: the shared effective-stat resolver first, then server-authoritative stamina and sprinting, then passive training, each with the tests named in Section 3 and Section 6.
+2. Approve the commit. It protects the map/economy work, the Phase 2 slice and the companion MVP from loss.
+3. Run the Phase 2 and companion rows in `docs/STUDIO_TEST_PLAN.md` (especially Session L) and record the results.
+4. Only then start Phase 3 (Museum Prestige), beginning with the written reset whitelist and migration plan required by Section 6.
 
 Phase 2 must not change upgrade costs, the economy, persistence behavior or existing gameplay without an explicit, documented, approved change. Do not perform unrelated cleanup or risky irreversible changes without first reporting the risk and obtaining clarification.
 

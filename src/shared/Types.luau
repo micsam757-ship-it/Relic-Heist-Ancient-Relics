@@ -58,11 +58,15 @@ export type PlayerProfile = {
 	stats: PlayerStats,
 	relics: { [string]: OwnedRelic },
 	museum: MuseumState,
+	training: { [string]: number },
+	companions: { [string]: boolean },
+	equippedCompanion: string?,
 	upgrades: UpgradeLevels,
 	unlockedTemples: { [string]: boolean },
 	lastIncomeClaimAt: number,
 	pendingOfflineGold: number,
 	vip: boolean,
+	tutorialStep: number,
 	settings: PlayerSettings,
 }
 

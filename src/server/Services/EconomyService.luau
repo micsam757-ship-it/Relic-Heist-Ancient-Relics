@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
 local Economy = require(ReplicatedStorage.Shared.Domain.Economy)
+local StatsUtil = require(script.Parent.Parent.Utilities.StatsUtil)
 local Logger = require(script.Parent.Parent.Utilities.Logger)
 
 local EconomyService = {}
@@ -54,12 +55,15 @@ function EconomyService:GetIncomeRate(profile): number
 		end
 	end
 	local floorLevel = profile.upgrades.MuseumFloor or 0
-	return Economy.incomeRatePerSecond(
+	local rate = Economy.incomeRatePerSecond(
 		exhibitedIncome,
 		floorLevel,
 		GameConfig.Museum.IncomePerMinuteFloorBonus,
 		GameConfig.Museum.MaxIncomeRatePerMinute
 	)
+	-- The equipped companion's gold bonus applies to passive income too, so
+	-- "gold earnings" is one rule rather than a payout-specific exception.
+	return rate * StatsUtil.forProfile(profile).goldMultiplier
 end
 
 -- VIP Pass holders get a longer window and a higher ceiling.
