@@ -7,6 +7,17 @@ major.minor.patch scheme while pre-1.0.
 
 ### Added
 
+- **Museum Prestige** (FR-032, schema v7, ADR 0014): optional repeatable reset
+  once all seven museum upgrades are maxed and all 14 pedestals are occupied.
+  Pure `Prestige` rules compute eligibility, the explicit reset allowlist,
+  `+5%` per level museum income (capped at `+50%`) and Curator ranks. The new
+  `PrestigeService` validates the exact `PRESTIGE` confirmation, rejects active
+  expeditions and ephemeral sessions, builds a non-mutating reset copy, installs
+  it through `PlayerDataService:SwapProfile`, forces a save, and rolls back on
+  failure. Only a successful save fires `PrestigeApplied`, rebuilding the plot
+  and refreshing the museum once. The Museum panel shows level, rank, bonus and
+  a requirement checklist; the confirmation modal requires typing `PRESTIGE`.
+  Existing profiles migrate to v7 with prestige level 0 and no prior prestige.
 - **Relic Companions** (FR-031, schema v6, ADR 0013): three gold-purchased
   companions (`SunScarab`, `TempleHound`, `StoneGuardian`) with server-owned
   ownership and a single equipped slot. `Companions` holds the pure ownership,
@@ -45,8 +56,8 @@ major.minor.patch scheme while pre-1.0.
   (Strength reduces the weight penalty, Stamina grows the pool and lowers the
   drain, Carrying adds capacity) and is shown in the Settings panel.
 - 22 new domain/config tests for stats, stamina, training, schema v5 and the
-  stamina tuning, plus companion, temple-XP, schema v6 and companion-config
-  tests - 141 assertions total.
+  stamina tuning, plus companion, temple-XP, schema v6, companion-config and
+  prestige domain/schema/stats tests - 151 assertions total.
 
 - Pure `Validate` module (`src/shared/Utilities/Validate.luau`) for request-payload
   shape checks, now used by `NetworkService` and unit tested (T-03).

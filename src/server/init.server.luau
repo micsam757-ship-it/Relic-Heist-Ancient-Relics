@@ -27,6 +27,7 @@ local services = {
 	Tutorial = require(script.Services.TutorialService),
 	Training = require(script.Services.TrainingService),
 	Companion = require(script.Services.CompanionService),
+	Prestige = require(script.Services.PrestigeService),
 	Expedition = require(script.Services.ExpeditionService),
 	Stamina = require(script.Services.StaminaService),
 	Hazard = require(script.Services.HazardService),
@@ -50,6 +51,7 @@ local ctx = {
 		PlotReleased = Signal.new(),
 		UpgradePurchased = Signal.new(),
 		TempleUnlocked = Signal.new(),
+		PrestigeApplied = Signal.new(),
 	},
 }
 
@@ -66,6 +68,7 @@ local initOrder = {
 	"Tutorial",
 	"Training",
 	"Companion",
+	"Prestige",
 	"Plot",
 	"Museum",
 	"Relic",
@@ -95,6 +98,7 @@ local startOrder = {
 	"Stamina",
 	"Expedition",
 	"Companion",
+	"Prestige",
 	"Admin",
 }
 

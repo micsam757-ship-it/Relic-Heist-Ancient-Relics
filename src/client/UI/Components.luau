@@ -157,6 +157,34 @@ function Components.setDisabled(button: TextButton, disabled: boolean)
 	button.TextTransparency = disabled and 0.35 or 0
 end
 
+function Components.textBox(parent: Instance, props)
+	local box = Instance.new("TextBox")
+	box.Name = props.Name or "TextBox"
+	box.Size = props.Size or UDim2.new(1, 0, 0, 40)
+	box.Position = props.Position or UDim2.fromScale(0, 0)
+	box.AnchorPoint = props.AnchorPoint or Vector2.new(0, 0)
+	box.BackgroundColor3 = Theme.Color.Background
+	box.BorderSizePixel = 0
+	box.Font = props.Font or Theme.Font.Mono
+	box.Text = props.Text or ""
+	box.PlaceholderText = props.PlaceholderText or ""
+	box.PlaceholderColor3 = Theme.Color.TextDim
+	box.TextColor3 = Theme.Color.Text
+	box.TextSize = props.TextSize or Theme.TextSize.Body
+	box.TextXAlignment = Enum.TextXAlignment.Left
+	box.ClearTextOnFocus = props.ClearTextOnFocus == true
+	box.Parent = parent
+	corner(box, Theme.Radius.Small)
+	stroke(box, Theme.Color.Border, 1.2)
+
+	local padding = Instance.new("UIPadding")
+	padding.PaddingLeft = UDim.new(0, 10)
+	padding.PaddingRight = UDim.new(0, 10)
+	padding.Parent = box
+
+	return box
+end
+
 function Components.bar(parent: Instance, props)
 	local frame = Instance.new("Frame")
 	frame.Name = props.Name or "Bar"

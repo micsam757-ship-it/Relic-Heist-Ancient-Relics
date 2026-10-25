@@ -212,8 +212,29 @@ Use `!rh_gold` to afford the companions; use `!rh_state` to check saved fields.
 | L6 | Equip/swap | Recruit Temple Hound, then Equip it | Sun Scarab becomes owned/unequipped; movement weight penalty drops, stamina recovery rises; only one companion is equipped | |
 | L7 | Capacity/stamina | Recruit and equip Stone Guardian | Capacity and max stamina each increase by 20; the new capacity shows in the HUD and survives a rejoin | |
 | L8 | Unequip | Unequip the companion | Stats return to their pre-companion values; the effect is visible immediately, and no bonus remains | |
-| L9 | Persistence | Rejoin after buying/equipping | Ownership, equipped id, gold spent, and training XP are restored; schema is v6 and no unknown field is lost | |
+| L9 | Persistence | Rejoin after buying/equipping | Ownership, equipped id, gold spent, and training XP are restored; schema is v7 and no unknown field is lost | |
 | L10 | Exploit checks | Send a Buy/Equip request for an unknown id, an unowned id, or an already-equipped id | Server refuses cleanly with a toast; no gold is spent and no bonus is applied | |
+
+---
+
+## Session M — Museum Prestige (ADR 0014)
+
+Use `!rh_gold` and the admin upgrade commands to fill the museum; use
+`!rh_state` to inspect `prestigeLevel` and `lastPrestigeAt`. Prestige is
+irreversible, so test on a throwaway account/profile.
+
+| # | Check | Steps | Expected | Result |
+| --- | --- | --- | --- | --- |
+| M1 | Prestige panel | Open the Museum panel with a fresh profile | Prestige section shows level 0, no rank, `+0%`, next `+5%`, and every requirement unmet; the button is disabled | |
+| M2 | Requirement checklist | Max the seven museum upgrades and fill all 14 pedestals | Every checklist row turns met; expedition and persistence rows stay met only outside a run and in a saving session | |
+| M3 | Confirmation gate | Click Prestige, type a partial phrase or something other than `PRESTIGE` | The confirm button stays disabled until the typed word matches (case-insensitive); Cancel closes without a request | |
+| M4 | Successful prestige | Type `PRESTIGE` and confirm | Gold becomes 250; relics and museum are empty; the seven museum upgrades are 0; level becomes 1 and bonus `+5%`; the plot and museum refresh once; training, companions, non-museum gear, temple unlocks, stats, settings and VIP survive; success toast appears | |
+| M5 | Repeat and cooldown | Immediately refill the museum and try again within 60s, then after 60s | The first attempt shows the cooldown row unmet; after 60s a second prestige reaches level 2 with `+10%` | |
+| M6 | Expedition gate | Enter any temple, then try to prestige | The expedition row is unmet, the button is disabled, and a forced request is refused with a toast; no reset occurs | |
+| M7 | Persistence | Rejoin after a successful prestige | Schema is v7; level, rank, lastPrestigeAt, cleared museum, reset upgrades, and surviving gear/training/companions are restored | |
+| M8 | Save rollback | Simulate a forced-save failure (for example, make the profile ephemeral or block the save), then request prestige | The request fails with "Prestige could not be saved"; gold, relics, museum, and upgrades are unchanged and no success effects fire | |
+| M9 | Exploit checks | Send `Prestige` with nil/empty data, a non-string confirm, and the wrong confirmation string | Server refuses each cleanly with a toast; no reset or success event occurs | |
+| M10 | Ephemeral session | Join in a session without persistent saves and request prestige | The persistence requirement is unmet and the server refuses; no reset occurs | |
 
 ---
 
@@ -235,3 +256,4 @@ Copy completed rows here (or straight into `docs/PROJECT_STATUS.md`):
 | J | | | | |
 | K | | | | |
 | L | | | | |
+| M | | | | |

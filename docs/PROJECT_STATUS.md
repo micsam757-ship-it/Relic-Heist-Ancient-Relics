@@ -1,6 +1,6 @@
 # Project Status
 
-Updated: 2026-10-23
+Updated: 2026-10-25
 
 ## Summary
 
@@ -12,28 +12,30 @@ The build is a **single-player-viable vertical slice**: four playable temples
 including the endgame Void Citadel, sixteen relics, ten upgrades, a 12-plot museum
 ring, server-authoritative hazards (dart, boulder, blade, collapse) and aggressive
 guardians, server-authoritative sprint stamina, passive training, three
-gold-purchased relic companions, a data-driven tutorial and accessibility
-settings, and a responsive cross-platform client HUD. It boots and runs in a
-Roblox Studio play session (see "Studio playtest results"); live DataStore,
-multiplayer behaviour, the stamina/training/companion loop, and the M5 UX
-features (tutorial flow, accessibility, touch/gamepad) remain partially verified.
+gold-purchased relic companions, repeatable Museum Prestige, a data-driven
+tutorial and accessibility settings, and a responsive cross-platform client HUD.
+It boots and runs in a Roblox Studio play session (see "Studio playtest
+results"); live DataStore, multiplayer behaviour, the
+stamina/training/companion/prestige loop, and the M5 UX features (tutorial flow,
+accessibility, touch/gamepad) remain partially verified.
 
 ## Milestone status
 
 | Area | Status | Notes |
 | --- | --- | --- |
 | Project scaffolding (Rojo, Stylua, Selene) | Implemented + validated | `rojo build`, `stylua --check`, `selene` all pass |
-| Shared domain logic (Companions, Economy, Encumbrance, Inventory, Progression, RunRules, Schema, SceneryLayout, Stamina, Stats, Training, Tutorial, Util) | Implemented + tested | 141 assertions pass under the standalone Luau CLI |
+| Shared domain logic (Companions, Economy, Encumbrance, Inventory, Prestige, Progression, RunRules, Schema, SceneryLayout, Stamina, Stats, Training, Tutorial, Util) | Implemented + tested | 151 assertions pass under the standalone Luau CLI |
 | Content set (4 temples, 16 relics, 4 trap kinds, guardians) | Implemented + tested | Config-integrity tests validate spawns, visuals, trap kinds, guardians, tutorial steps, audio, and the unlock chain |
-| Persistence (DataStore, schema v6 migrations, conflict guard) | Implemented, not run against live DataStore | Logic reviewed + migration tested; Studio/live run pending |
+| Persistence (DataStore, schema v7 migrations, conflict guard) | Implemented, not run against live DataStore | Logic reviewed + migration tested; Studio/live run pending |
 | Networking (single `Request` action channel + `State`/`Event` streams) | Implemented + validated (build) | Server + client wired |
 | World generation (unified ground, hub, connecting avenues, temples, plots) | Implemented + validated (build) | `GroundBuilder` lays a rounded-rectangle ground slab (1300 x 2180, 300-stud corners) flush with every structure; `PathBuilder` builds marble avenues from the hub to each plot and temple; `WorldBuilder` composes ground → hub → temples → avenues |
 | Horizon scenery (forest belt + layered rocky escarpment) | Implemented + tested (domain/config) | `SceneryLayout` decides a 299-tree grove and a 119-block rock rim with 60 crest blocks (777 decorative parts, budget 800); the belt is measured to the canopy edge and sits 30-60 studs beyond the playable content; the rim stands close behind the grove, is gapless around the whole footprint and varies in height and depth; trees clear the temples, hub and plot ring and may border the avenues; decorative parts never collide, query, touch or cast shadows; the new footprint, grove belt, escarpment rim and the fall-and-respawn edge were playtested in Studio by the owner (Session A, rows A6-A9) |
 | Museum wings + building enhancements (ADR 0010) | Implemented + tested (domain/config) | Three cosy grand wings within a 90x90 footprint (Foyer 90x90x16, Hall 80x56x14, Vault 76x52x14), human-scale 1.5-stud walls and 2x2 pillars, slim 8-stud inter-wing gaps, gated by `MuseumFloor`; marble walls/crown molding, arched entries, tiled floors, coffered ceilings with spotlights; staggered pedestal alcoves; floating label cards; glass-dome locked indicator; 5 visual upgrades; per-rarity pedestal tiers; plots rebuilt fresh each session (stale `MuseumPlots` cleared); pure rules in `MuseumBuilder`; in-Studio geometry not yet playtested |
-| Server services (21 domain services) | Implemented + validated (build) | Includes `MonetizationService`, `GuardianService`, `TutorialService`, `StaminaService`, `TrainingService`, `CompanionService`; see `docs/ARCHITECTURE.md` |
+| Server services (22 domain services) | Implemented + validated (build) | Includes `MonetizationService`, `GuardianService`, `TutorialService`, `StaminaService`, `TrainingService`, `CompanionService`, `PrestigeService`; see `docs/ARCHITECTURE.md` |
 | Sprint stamina (FR-029) | Implemented + tested (domain/config) | Server-authoritative pool; `SetSprint` intent; Shift/L3 hold; exhaustion and HUD bar; in-Studio sprint not yet playtested |
 | Passive training + stats resolver (added in schema v5) | Implemented + tested (domain/config) | `Training` experience curve, `Stats` effective-stat resolver, `StatsUtil` profile bridge; XP from relics, extractions and temple time; Settings panel lists levels/XP; in-Studio flow not yet playtested |
 | Relic Companions (Phase 1 MVP, schema v6) | Implemented + tested (domain/config) | Three gold-purchased companions, server-owned ownership and one equipped slot, bonuses through `StatsUtil`/`Stats` (including a clamped gold multiplier), persistence/migration, and a `C`-key panel; purchase/equip not yet playtested in Studio |
+| Museum Prestige (Phase 3, ADR 0014) | Implemented + tested (domain/config); save transaction unverified in live DataStore | Accepted ADR 0014. Schema v7, pure `Prestige` eligibility/reset/reward rules, `PrestigeService` forced-save rollback, `PrestigeApplied` single refresh, Museum panel section and typed `PRESTIGE` confirmation. Ten new tests cover the curve, allowlist, eligibility, apply survivors, migration, normalization and museum-only stats. Studio Session M and live save-failure behavior pending |
 | Client UI (top bar, HUD, 6 panels, summaries, prompts, tutorial objective) | Implemented + validated (build) | Keyboard + touch + gamepad path wired |
 | Tutorial (data-driven step sequencer) | Implemented + tested (domain/config) | Server-authoritative progression; never gates play; in-Studio flow not yet playtested |
 | Accessibility settings (text size, reduced motion, colorblind palette) | Implemented + tested (schema/config) | Server-validated; applied via `Preferences`/`Theme`; not yet playtested in Studio |
@@ -48,7 +50,7 @@ features (tutorial flow, accessibility, touch/gamepad) remain partially verified
 | Monetization (Welcome Back offer, VIP Pass, Instant Revive) | Implemented, stub IDs | Flow + policy documented (`docs/MONETIZATION.md`); real Product/Pass IDs and a live purchase test pending |
 | Static analysis | Implemented + validated | `selene`: 0 errors / 0 warnings |
 | Type check (pure modules) | Implemented + validated | `luau-analyze src/shared` clean |
-| Automated logic tests | Implemented + validated | `luau tests/run_tests.luau` — 141 assertions |
+| Automated logic tests | Implemented + validated | `luau tests/run_tests.luau` — 151 assertions |
 | Exploit-resistance tests (input validation, rate limiting, save conflict guard) | Implemented + tested | Pure `Validate` / `RateLimiter` / `Persist` modules extracted from the hot path |
 | Persistence failure-mode tests (load outcome, retry bounds) | Implemented + tested | Pure `Persist.loadOutcome`/`retryBackoff`; matrix in `docs/DATA_MODEL.md` |
 | Network contract tests (action registry + data shapes) | Implemented + tested | Pure `Contracts` module; drift guard against `docs/API_CONTRACTS.md` |
@@ -68,12 +70,12 @@ All commands were run from the repository root on Windows.
 rojo build default.project.json -o <out>.rbxlx   -> Built project ... (success)
 stylua --check .                                 -> no diff
 selene src tests                                 -> 0 errors, 0 warnings, 0 parse errors
-luau tests/run_tests.luau                         -> 141 passed, 0 failed
+luau tests/run_tests.luau                         -> 151 passed, 0 failed
 luau tests/bench.luau                             -> report (see docs/PERFORMANCE.md)
 luau-analyze src/shared/Domain src/shared/Config  -> no output (clean)
 ```
 
-The same set runs via `pwsh scripts/check.ps1` (used by CI); verified locally with
+The same set runs via `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1` (used by CI); verified locally with
 `RELIC_HEIST_TOOLS` pointing at the downloaded toolchain:
 
 Note: `luau-analyze` on the full tree reports `Unknown global 'warn'` for
@@ -128,6 +130,10 @@ confirmed here and the Guardian fix in particular still needs a replay:
   movement effects, the gold bonus on museum income and the extraction summary,
   the disabled-when-unaffordable Recruit button, and persistence across rejoin
   (schema v6, ADR 0013).
+- Museum Prestige in-session (ADR 0014, schema v7): the requirement checklist,
+  disabled-until-eligible button, typed confirmation, successful reset and single
+  plot/museum refresh, survivor fields, cooldown, expedition/ephemeral refusal,
+  forced-save rollback, and persistence across rejoin (Session M).
 - Guardian aggro/chase/attack after defect 4 (replay session C), including the new
   aggressive tuning and the last-known-position hunt through broken line of sight
   (FR-027).
@@ -174,10 +180,13 @@ confirmed here and the Guardian fix in particular still needs a replay:
 1. Keep the checklist in `docs/TEST_STRATEGY.md` open while playing; run the
    step-by-step sessions in `docs/STUDIO_TEST_PLAN.md` (boot, core loop,
    guardians, museum/economy, persistence, tutorial, accessibility, input,
-   multiplayer, monetization/audio). Tick each item and record anything
-   unexpected in the Output window.
-2. Confirm DataStore persistence by replaying a session with API services enabled
-   and rejoining.
-3. Run the full CI check set before committing: `pwsh scripts/check.ps1` (or the
+   multiplayer, monetization/audio, and Session L for training/stamina/
+   companions). Session M covers the new prestige reset, confirmation, rollback,
+   and survivor paths. Tick each item and record anything unexpected in the
+   Output window.
+2. Confirm DataStore persistence and the prestige forced-save rollback by
+   replaying a session with API services enabled and rejoining.
+3. Run the full CI check set before committing:
+   `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1` (or the
    individual commands above).
 4. Update this document with the observed results.

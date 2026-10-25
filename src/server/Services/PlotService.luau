@@ -184,6 +184,11 @@ function PlotService:Start()
 			rebuildPlot(player)
 		end
 	end)
+	-- A prestige resets every footprint upgrade at once. Rebuild once from the
+	-- new profile instead of firing seven UpgradePurchased signals.
+	state.ctx.Signals.PrestigeApplied:Connect(function(player)
+		rebuildPlot(player)
+	end)
 end
 
 return PlotService

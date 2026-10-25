@@ -672,6 +672,35 @@ GameConfig.Upgrades = {
 	},
 }
 
+-- Museum Prestige (ADR 0014). A prestige donates the collection and museum
+-- development in exchange for a permanent, derived income bonus. Only the ids
+-- in `ResetUpgradeIds` are cleared; everything else on the profile survives.
+GameConfig.Prestige = {
+	BonusPerLevel = 0.05,
+	MaxLevel = 10,
+	MaxBonus = 0.5,
+	MinSecondsBetween = 60,
+	StartingGold = GameConfig.Economy.StartingGold,
+	-- `MuseumFloor` and `ExtraPedestal` are gameplay upgrades; the rest are the
+	-- `GameConfig.MuseumBuilding.Enhancements` visuals. The config-integrity test
+	-- asserts this list covers exactly both sets.
+	ResetUpgradeIds = {
+		"MuseumFloor",
+		"ExtraPedestal",
+		"MarblePillars",
+		"Lighting",
+		"GlassCases",
+		"VelvetRopes",
+		"Chandeliers",
+	},
+	Ranks = {
+		{ minLevel = 1, title = "Curator" },
+		{ minLevel = 5, title = "Master Curator" },
+		{ minLevel = 10, title = "Grand Curator" },
+	},
+	Upgrades = GameConfig.Upgrades,
+}
+
 GameConfig.Temples = {
 	TutorialRuins = {
 		name = "Tutorial Ruins",

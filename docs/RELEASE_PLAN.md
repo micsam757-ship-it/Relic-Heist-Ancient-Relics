@@ -23,7 +23,10 @@ Exit criteria:
   and temple-time XP.
 - [done] Relic Companions MVP: three gold-purchased companions, one equipped
   slot, resolver-fed bonuses, schema v6, and a client panel.
-- Complete the Studio playtest checklist and record results.
+- [done] Museum Prestige: optional repeatable reset, derived museum-income bonus,
+  schema v7, forced-save rollback, and typed confirmation UI.
+- Complete the Studio playtest checklist and record results (Session M covers
+  prestige and its save/reset paths).
 - Tune hazard timings and economy from playtest data.
 - Add audio cues behind `settings.soundEnabled`.
 - Fix any boot/runtime errors found in Studio.

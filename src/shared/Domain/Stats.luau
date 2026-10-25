@@ -72,7 +72,10 @@ export type EffectiveStats = {
 	staminaDrainPerSecond: number,
 	staminaRecoveryPerSecond: number,
 	sprintSpeedMultiplier: number,
+	-- Companion-only: used by the extraction stipend.
 	goldMultiplier: number,
+	-- Companion bonus plus Museum Prestige: used by museum income.
+	museumIncomeMultiplier: number,
 }
 
 -- The movement penalty can never be reduced by more than this share of the
@@ -207,12 +210,25 @@ function Stats.goldMultiplier(companions: CompanionBonuses?): number
 	return math.clamp(1 + bonus, 1, MAX_GOLD_MULTIPLIER)
 end
 
+-- Museum income combines the companion gold bonus and the prestige bonus. The
+-- prestige bonus is passed in by StatsUtil from the profile level; Stats never
+-- stores or invents it.
+function Stats.museumIncomeMultiplier(companions: CompanionBonuses?, prestigeBonus: number?): number
+	local companionBonus = 0
+	if companions ~= nil then
+		companionBonus = math.max(0, companions.GoldMultiplier or 0)
+	end
+	local prestige = math.max(0, prestigeBonus or 0)
+	return math.clamp(1 + companionBonus + prestige, 1, MAX_GOLD_MULTIPLIER)
+end
+
 -- Resolves every derived stat from the sources that can raise it.
 function Stats.resolve(
 	config: StatConfig,
 	upgrades: Levels,
 	training: Levels,
-	companions: CompanionBonuses?
+	companions: CompanionBonuses?,
+	prestigeBonus: number?
 ): EffectiveStats
 	return {
 		capacity = Stats.capacity(config, upgrades, training, companions),
@@ -223,6 +239,7 @@ function Stats.resolve(
 		staminaRecoveryPerSecond = Stats.staminaRecoveryPerSecond(config, companions),
 		sprintSpeedMultiplier = config.Movement.SprintSpeedMultiplier,
 		goldMultiplier = Stats.goldMultiplier(companions),
+		museumIncomeMultiplier = Stats.museumIncomeMultiplier(companions, prestigeBonus),
 	}
 end
 

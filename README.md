@@ -21,7 +21,7 @@ Open the built place in Roblox Studio and play solo to run the loop.
 One command runs the whole suite:
 
 ```bash
-pwsh scripts/check.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1
 ```
 
 Or run the steps individually:

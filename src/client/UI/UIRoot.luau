@@ -20,6 +20,7 @@ local UIRoot = {}
 
 local refs = {}
 local activePanel = nil
+local activePrestigeModal = nil
 local welcomeBackOpen = false
 local timeOffset = 0
 local lastHudRefresh = 0
@@ -380,6 +381,93 @@ function UIRoot.closePanel()
 	end
 end
 
+function UIRoot.openPrestigeConfirm()
+	local snapshot = State.get()
+	local prestige = snapshot and snapshot.prestige
+	if prestige == nil or not prestige.canPrestige then
+		UIRoot.toast("warning", "Your museum is not ready to prestige yet.")
+		return
+	end
+	if activePrestigeModal ~= nil then
+		activePrestigeModal.destroy()
+		activePrestigeModal = nil
+	end
+
+	local modal = Components.modal(refs.modalHost, {
+		Title = "Prestige the Museum",
+		Size = UDim2.fromOffset(540, 440),
+	})
+	activePrestigeModal = modal
+	modal.backdrop.Destroying:Connect(function()
+		if activePrestigeModal == modal then
+			activePrestigeModal = nil
+		end
+	end)
+
+	local scroll = Components.scroll(modal.body, { Size = UDim2.fromScale(1, 1) })
+	Components.label(scroll, {
+		Text = string.format(
+			"Prestige %d | %s | %d%% -> %d%% museum income",
+			prestige.level or 0,
+			prestige.rank or "Unranked",
+			math.floor((prestige.bonus or 0) * 100 + 0.5),
+			math.floor((prestige.nextBonus or 0) * 100 + 0.5)
+		),
+		Font = Theme.Font.Heading,
+		TextSize = Theme.TextSize.Body,
+		TextColor = Theme.Color.Gold,
+		Size = UDim2.new(1, 0, 0, 28),
+	})
+	Components.label(scroll, {
+		Text = "This reset cannot be undone. Your collection is donated and the museum starts again.",
+		TextSize = Theme.TextSize.Small,
+		TextColor = Theme.Color.Danger,
+		Size = UDim2.new(1, 0, 0, 38),
+	})
+	for _, line in prestige.resets or {} do
+		Components.label(scroll, {
+			Text = line,
+			TextSize = Theme.TextSize.Small,
+			TextColor = Theme.Color.TextMuted,
+			Size = UDim2.new(1, 0, 0, 18),
+		})
+	end
+	Components.label(scroll, {
+		Text = "Type PRESTIGE to enable the confirmation button.",
+		TextSize = Theme.TextSize.Small,
+		TextColor = Theme.Color.Text,
+		Size = UDim2.new(1, 0, 0, 22),
+	})
+	local input = Components.textBox(scroll, {
+		PlaceholderText = "PRESTIGE",
+		Size = UDim2.new(1, 0, 0, 40),
+	})
+	local confirm = Components.button(scroll, {
+		Text = "Confirm Prestige",
+		Size = UDim2.new(1, 0, 0, 42),
+		Color = Theme.Color.DangerDeep,
+		OnClick = function()
+			if string.upper(input.Text) ~= "PRESTIGE" then
+				return
+			end
+			Net.send("Prestige", { confirm = "PRESTIGE" })
+			modal.destroy()
+		end,
+	})
+	Components.setDisabled(confirm, true)
+	Components.button(scroll, {
+		Text = "Cancel",
+		Size = UDim2.new(1, 0, 0, 36),
+		Color = Theme.Color.PanelAlt,
+		OnClick = function()
+			modal.destroy()
+		end,
+	})
+	input:GetPropertyChangedSignal("Text"):Connect(function()
+		Components.setDisabled(confirm, string.upper(input.Text) ~= "PRESTIGE")
+	end)
+end
+
 function UIRoot.openPanel(name: string)
 	UIRoot.closePanel()
 	local builder = Panels[name]
@@ -395,6 +483,9 @@ function UIRoot.openPanel(name: string)
 			UIRoot.closePanel()
 		end,
 		toast = UIRoot.toast,
+		prestige = function()
+			UIRoot.openPrestigeConfirm()
+		end,
 	})
 	activePanel = {
 		name = name,

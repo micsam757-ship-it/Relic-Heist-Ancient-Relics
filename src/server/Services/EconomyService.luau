@@ -61,9 +61,9 @@ function EconomyService:GetIncomeRate(profile): number
 		GameConfig.Museum.IncomePerMinuteFloorBonus,
 		GameConfig.Museum.MaxIncomeRatePerMinute
 	)
-	-- The equipped companion's gold bonus applies to passive income too, so
-	-- "gold earnings" is one rule rather than a payout-specific exception.
-	return rate * StatsUtil.forProfile(profile).goldMultiplier
+	-- Passive museum income uses the companion bonus plus the prestige bonus.
+	-- The companion-only `goldMultiplier` is reserved for the extraction stipend.
+	return rate * StatsUtil.forProfile(profile).museumIncomeMultiplier
 end
 
 -- VIP Pass holders get a longer window and a higher ceiling.

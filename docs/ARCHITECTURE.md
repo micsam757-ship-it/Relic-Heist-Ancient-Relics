@@ -41,6 +41,8 @@ snapshot. It never computes rewards, prices, damage, or ownership.
     - `Training` - passive experience curve and derived attribute levels.
     - `Companions` - companion ownership/equip rules and bonus aggregation for
       the stat resolver.
+    - `Prestige` - museum reset eligibility, the explicit reset allowlist, the
+      derived income bonus/rank, and a non-mutating reset-copy builder.
    - `MuseumBuilder` - museum wing layout, pedestal placement/tiering, and
      building-enhancement levels (see `docs/ADR/0010-museum-expansion.md`).
    - `SceneryLayout` - the shape of the world: the rounded-rectangle geometry,
@@ -68,12 +70,19 @@ snapshot. It never computes rewards, prices, damage, or ownership.
    passive experience on relic pickups, successful hauls, and time spent inside
    a temple. Every derived number comes from `StatsUtil.forProfile`, which
    converts stored training experience into the levels the `Stats` resolver
-   consumes and adds the equipped companion's bonuses.
+   consumes, adds the equipped companion's bonuses, and passes the profile's
+   derived prestige bonus for museum income.
    `CompanionService` owns companion purchases and the single equipped slot.
    It validates and rate-limits the `BuyCompanion`/`EquipCompanion`/
    `UnequipCompanion` actions, moves gold through `Economy:Spend`, re-applies
    health/stamina/movement effects, and never computes a companion stat itself:
    the resolver does that from the equipped id.
+   `PrestigeService` owns the `Prestige` action. It re-checks expedition and
+   persistence state, builds a reset copy with pure `Prestige.apply`, installs it
+   through `PlayerDataService:SwapProfile`, forces a save, and restores the old
+   profile if that save fails. Only a successful save fires `PrestigeApplied`,
+   which drives one plot rebuild and one museum refresh; the reset never emits a
+   burst of upgrade signals.
 
 5. **Server / World** - builds the unified ground, hub, temples, connecting
    avenues, museum plots and the horizon scenery at runtime from `GameConfig`
@@ -99,19 +108,20 @@ snapshot. It never computes rewards, prices, damage, or ownership.
 1. `WorldBuilder.Build()` - geometry and runtime handles.
 2. `Init(ctx)` for every service, in dependency order:
    `Network, Analytics, View, PlayerData, Monetization, Economy, Upgrade,
-   Progression, Settings, Tutorial, Training, Companion, Plot, Museum, Relic,
-   Expedition, Hazard, Guardian, Extraction, Stamina, Admin`.
+   Progression, Settings, Tutorial, Training, Companion, Prestige, Plot, Museum,
+   Relic, Expedition, Hazard, Guardian, Extraction, Stamina, Admin`.
 3. Signal wiring: `ProfileLoaded/ProfileChanged/PlotAssigned/PlotReleased` push
    fresh state; hub kiosk prompts push `OpenPanel` events.
 4. `Start()` in dependency order:
    `Network, Analytics, Monetization, Economy, Upgrade, Progression, Settings,
    Tutorial, Training, Plot, Museum, Hazard, Guardian, Extraction, Stamina,
-   Expedition, Companion, Admin`
+   Expedition, Companion, Prestige, Admin`
    (`RelicService` has no `Start()`; its pools spawn lazily on first entry).
    Monetization starts before Economy so the cached VIP entitlement is known when
    the offline cap is computed; Guardian starts after Hazard because it routes
    contact damage through `HazardService:DamagePlayer`; Companion starts after
-   Expedition so equip effects can recalculate movement.
+   Expedition so equip effects can recalculate movement; Prestige starts after
+   Companion so every profile consumer exists before reset side effects.
 5. `PlayerDataService:Start()` last, so every `ProfileLoaded` listener exists
    before any player profile finishes loading.
 
@@ -127,13 +137,20 @@ for `PlotAssigned`, so `Museum` must start before `Plot` begins loading players.
 - `NetworkService:PushEvent` carries discrete events (`Toast`,
   `ExpeditionSummary`, `PedestalSelected`, `Damage`, `HazardWarning`,
   `OpenPanel`, ...).
+- `PrestigeApplied` is an internal server signal, not a client event. The
+  handler swaps the saved profile first, then fires it once; `PlotService` and
+  `MuseumService` refresh from that single signal and `Network:PushState`
+  publishes the new snapshot.
 
 ## Persistence
 
 `PlayerDataService` owns profiles. See `docs/DATA_MODEL.md` and
 `docs/THREAT_MODEL.md` for the schema and safety rules (no blind overwrite,
 `UpdateAsync` session-conflict guard, debounced writes, `BindToClose` timeout,
-Studio-only ephemeral fallback).
+Studio-only ephemeral fallback). Prestige is the one forced-save transaction:
+`SwapProfile` replaces the in-memory profile without normalizing or marking it
+dirty, and a failed forced save restores the original profile before any side
+effect.
 
 ## Key constants
 

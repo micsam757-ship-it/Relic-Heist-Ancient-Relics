@@ -7,16 +7,19 @@
 **Engine:** Roblox  
 **Language:** Luau  
 **Architecture:** Rojo-based development  
-**Status:** Phase 2 complete; Phase 1 Relic Companions MVP implemented; checkpoint commit awaiting approval  
-**Last revised:** 2026-10-23 — Phase 2 completion and companion MVP status  
+**Status:** Phase 2 complete; Phase 1 Relic Companions MVP checkpointed (`40426c5`); Phase 3 Museum Prestige implemented and awaiting Studio Session M  
+**Last revised:** 2026-10-25 — prestige implementation, schema v7, tests and docs complete; manual/live verification pending  
 **Primary goal:** Evolve the existing game without breaking working systems.
 
 > This revision corrects the verified facts in Section 2, re-orders the roadmap in
 > Section 8 to match the actual state of the repository, records the approved
 > Phase 2 decisions in Section 3, adds the data-persistence safeguards in
 > Section 6, and replaces the "reported" issue list in Section 9 with the
-> verification results. Phase 2 and the Relic Companions MVP are now implemented;
-> the checkpoint commit is still pending approval.
+> verification results. Phase 2 and the Relic Companions MVP are implemented and
+> committed. Phase 3 is implemented: ADR 0014 is accepted, schema v7 and the pure
+> prestige rules are in place, the forced-save reset/rollback service and
+> confirmation UI are wired, and 151 assertions pass. Studio Session M and live
+> DataStore save-failure verification remain outstanding.
 
 ---
 
@@ -51,22 +54,23 @@ The systems below were verified against the repository on 2026-10-22. Entries ma
 | Relic collection | 16 relic definitions | `GameConfig.Relics` |
 | Museum economy | Passive income from displayed relics | `Economy.incomeRatePerSecond` |
 | Upgrades | Player and museum upgrades (10 shop ids) | `GameConfig.Upgrades` |
-| Persistence | Player profiles with schema migrations, currently schema v6 | `Schema.CURRENT_VERSION = 6`, `Schema.migrations` |
+| Persistence | Player profiles with schema migrations, currently schema v7 | `Schema.CURRENT_VERSION = 7`, `Schema.migrations` |
 | Networking | `Request`, `State`, and `Event` RemoteEvents | `src/client/Net.luau:8-10` |
-| Tests | **141 assertions pass, 0 failures** | `luau tests/run_tests.luau`, 2026-10-23 |
+| Tests | **151 assertions pass, 0 failures** | `luau tests/run_tests.luau`, 2026-10-25 |
 | Toolchain | Rojo, Aftman, StyLua, Selene, Luau | Aftman toolchain, `scripts/check.ps1` |
 | CI | GitHub Actions exists at `.github/workflows/ci.yml`. It runs rojo build, StyLua, Selene, the test suite and `luau-analyze` on the pure modules. It does **not** run `scripts/check.ps1`, so the benchmark step and the full local gate are not covered by CI | `.github/workflows/ci.yml` |
 
-The previously reported "97 unit tests" figure was stale; the current suite asserts 141.
+The previously reported "97 unit tests" figure was stale; the current suite asserts 151.
 
 ### Repository state
 
-- Branch `main`, one commit ahead of `origin/main` (`9793459 feat: Replayable expeditions and server-authoritative extraction credit`). `origin` is `https://github.com/micsam757-ship-it/Relic-Heist-Ancient-Relics.git`.
-- **Tags** `checkpoint-pre-m1` (`d546a57`) and `checkpoint-pre-m2` (`9793459`, HEAD) exist. These are tags, not branches: `main` is the only local branch. There are no other tags and no stashes.
-- **The working tree holds uncommitted reviewed work:** the map/horizon redesign,
-  the M2 economy rebalance, the Phase 2 stamina/training/resolver slice, and the
-  Phase 1 companion MVP. The existing tags do **not** protect it. See Section 10.
+- Branch `main`, four commits ahead of `origin/main`; the reviewed checkpoint is `40426c5`. `origin` is `https://github.com/micsam757-ship-it/Relic-Heist-Ancient-Relics.git`.
+- **Tags** `checkpoint-pre-m1` (`d546a57`) and `checkpoint-pre-m2` (`9793459`) exist. These are tags, not branches: `main` is the only local branch. There are no other tags and no stashes.
+- **The working tree holds uncommitted, uncheckpointed Phase 3 work:** the
+  prestige domain/service/UI, schema v7 and the associated tests/docs. The
+  existing checkpoint and tags do **not** protect it. See Section 10.
 - **Relic Companions are implemented (MVP).** Ownership, one equipped slot, three definitions, resolver-fed bonuses, schema v6 persistence, server actions, a client panel, and domain/config/schema tests are in the working tree. Manual purchase/equip playtesting is still pending.
+- **Museum Prestige is implemented (Phase 3).** Pure eligibility/reset/reward rules, schema v7, `PrestigeService` with forced-save rollback, the Museum panel section, typed confirmation, and ten new tests are in the working tree. Studio Session M and live save-failure verification are still pending.
 - **The map redesign is substantially complete and must not be treated as a fresh redesign.** The ground is a rounded rectangle (X -650..650, Z -640..1540, 300-stud corner radius) with a 299-tree grove and a layered rocky escarpment (777 decorative parts against a ceiling of 800), covered by 12 map/scenery tests and manually playtested. Remaining map work is verification of material, lighting and landmark gaps only (Section 8, Phase 5).
 - **Phase 1 lighting is frozen.** `src/server/World/WorldBuilder.luau` holds the reviewed golden-hour lighting pass and must not be edited without re-approval and re-anchoring. Its anchor script lives **outside the repository**, in `%TEMP%` (`...\opencode\lighting_anchor.ps1`); it verifies the lighting-region hash `52350767...b2eac` and the whole-file hash `73f7ea4c...bbff`. Moving that script into `scripts/` is a separate, small task and is not part of any progression phase.
 - The **M2 economy rebalance** in the working tree is the current balance baseline: `ExtractionValueToGold` 0.25 → 0.15, relic `incomePerMinute` values reduced ~5x (total 2326 → 465/min), offline ceilings 50000 → 5000 and 200000 → 20000, and the SunkenSanctum / VoidCitadel unlock prices raised to 4000 / 10000. Upgrade costs are unchanged. Phase 2 must build on this baseline, not on the pre-M2 numbers.
@@ -351,7 +355,7 @@ Their actual implementation must be inspected before any changes are made.
 
 Inspect the actual profile data structure, schema version, save process, and migration system.
 
-The schema version is 6 (`Schema.CURRENT_VERSION`), after the v5 training and v6 companion migrations.
+The schema version is 7 (`Schema.CURRENT_VERSION`), after the v5 training, v6 companion, and v7 prestige migrations.
 
 Any future companion or prestige data must:
 
@@ -493,7 +497,7 @@ The ground footprint, grove, escarpment and lighting work are implemented, revie
 
 ### Phase 3 — Museum Prestige
 
-**Status: not started. The persistence safeguards in Section 6 are prerequisites, not follow-ups.**
+**Status: implemented and covered by pure tests (ADR 0014, Accepted). Studio Session M and live DataStore rollback verification remain outstanding.**
 
 - Define reset and retention rules as an explicit whitelist of what survives.
 - Design permanent rewards.
@@ -605,14 +609,14 @@ Map improvements must also be evaluated visually in Roblox Studio, not solely th
 
 ## 12. Immediate Next Step
 
-**Approve and create the reviewed checkpoint commit for the current working tree — map/horizon redesign, M2 economy rebalance, documentation updates and this blueprint revision — including the completed Phase 2 and companion MVP work.**
+**Verify the completed Phase 3 work in Studio and against a live DataStore, then checkpoint it.**
 
 Concretely:
 
-1. Review the proposed checkpoint file list and diff summary in Section 10.
-2. Approve the commit. It protects the map/economy work, the Phase 2 slice and the companion MVP from loss.
-3. Run the Phase 2 and companion rows in `docs/STUDIO_TEST_PLAN.md` (especially Session L) and record the results.
-4. Only then start Phase 3 (Museum Prestige), beginning with the written reset whitelist and migration plan required by Section 6.
+1. The reviewed Phase 2 checkpoint is committed as `40426c5`; the Phase 3 implementation is currently uncommitted.
+2. Run the Phase 2, companion, and prestige rows in `docs/STUDIO_TEST_PLAN.md` (especially Sessions L and M) and record the results.
+3. Verify schema v7 persistence, the forced-save prestige transaction, and rollback behavior with API services enabled.
+4. Run the full gate (`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1`) and update `docs/PROJECT_STATUS.md` before checkpointing.
 
 Phase 2 must not change upgrade costs, the economy, persistence behavior or existing gameplay without an explicit, documented, approved change. Do not perform unrelated cleanup or risky irreversible changes without first reporting the risk and obtaining clarification.
 

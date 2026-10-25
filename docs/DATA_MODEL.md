@@ -6,11 +6,11 @@
 - Key per player: `player_<UserId>`.
 - One record per player; written with `UpdateAsync`.
 
-## Profile schema (version 6)
+## Profile schema (version 7)
 
 ```lua
 {
-  schemaVersion = 6,
+  schemaVersion = 7,
   sessionId = "<guid>",        -- identifies the owning server session
   updatedAt = <unix seconds>,
   gold = 250,
@@ -22,6 +22,8 @@
   training = { strength = 0, stamina = 0, carrying = 0 },  -- passive XP (v5)
   companions = { SunScarab = true },        -- owned companion ids (v6)
   equippedCompanion = "SunScarab",           -- one id, or nil (v6)
+  prestigeLevel = 0,                         -- completed prestiges (v7)
+  lastPrestigeAt = 0,                        -- unix seconds; 0 = never (v7)
   upgrades = {
     SprintBoots = 0, Backpack = 0, Armor = 0, MuseumFloor = 0, ExtraPedestal = 0,
     -- visual museum-building enhancements (v4)
@@ -66,6 +68,10 @@
   Companion bonuses and prices are derived from config, never stored.
 - Schema v6 adds the companion fields; existing profiles own none and have none
   equipped.
+- `prestigeLevel` is a non-negative integer clamped to `1000` for safety. It is
+  a count of completed prestiges, not a currency; the income bonus is always
+  derived from it.
+- `lastPrestigeAt` is an integer clamped to `[0, now]`; `0` means never.
 - `lastIncomeClaimAt <= now`.
 - `pendingOfflineGold >= 0`, integer.
 - `vip` is a boolean.
@@ -88,8 +94,10 @@ Version 4 records are upgraded to v5 by `migrations[4]`, which seeds the three
 training experience attributes at 0 and preserves any experience already stored.
 Version 5 records are upgraded to v6 by `migrations[5]`, which seeds an empty
 `companions` map and clears `equippedCompanion` when it is not a string, while
-preserving any companion data already present. Records with a schema version
-newer than `CURRENT_VERSION` are rejected rather than rewritten.
+preserving any companion data already present. Version 6 records are upgraded to
+v7 by `migrations[6]`, which seeds `prestigeLevel = 0` and `lastPrestigeAt = 0`
+only when each field is missing, preserving values already present. Records with
+a schema version newer than `CURRENT_VERSION` are rejected rather than rewritten.
 
 ## Profile size budget
 
@@ -98,7 +106,8 @@ profile is bounded by the 100-relic archive cap: 100 relic entries with a
 `relic_<guid>` key, a definition id and a timestamp are roughly 10-15 KB
 serialized; the 14 museum assignments, settings, upgrades and training add well
 under 3 KB. Companion data is at most three boolean keys plus one id (tens of
-bytes), so the schema v6 addition does not materially change the budget. The
+bytes), and the two prestige fields add a few bytes, so the v6/v7 additions do
+not materially change the budget. The
 overall worst case is comfortably below 25 KB, about 0.6% of the limit. Re-measure
 if the archive cap or stored per-relic data grows.
 
@@ -110,6 +119,10 @@ if the archive cap or stored per-relic data grows.
   wrote more recently, the write is aborted, the profile is marked ephemeral,
   and the player is told their changes will not overwrite the newer data.
 - `PlayerRemoving` and `BindToClose` force a save (bounded by a timeout).
+- Prestige is transactional: `PlayerDataService:SwapProfile` installs the reset
+  copy without marking it dirty, then a forced save must succeed before side
+  effects run. A failed save restores the pre-prestige profile, leaving the
+  stored record and the live player state unchanged. See `docs/ADR/0014-prestige-reset.md`.
 
 ## Not stored
 
@@ -155,6 +168,9 @@ count.
 - `Persist.loadOutcome` classification for every row above.
 - `Persist.canCommit` conflict guard (T-11) and `Persist.retryBackoff` bounds.
 - `Schema.migrate`/`normalize` for corrupt, future, and legacy records.
+- Schema v6 to v7 migration and prestige normalization clamps.
+- Prestige's reset-copy allowlist and survivor fields; the live forced-save
+  rollback still requires Studio/API-services verification (Session M).
 
 Live DataStore behaviour (real `GetAsync`/`UpdateAsync` errors) still requires a
 Studio API-services session and is listed as unverified in

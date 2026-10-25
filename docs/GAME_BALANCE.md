@@ -8,8 +8,9 @@ intent; the config is the source of truth.
 - Start gold: 250.
 - Museum income is displayed and accrued per second (`/sec`) in the UI, but is
   authored per minute in `GameConfig` for readability. It is additive per
-  exhibit, multiplied by the Museum Expansion bonus (`+5%` per level), and the
-  per-minute rate is capped at `5000/min` (`~83.3/sec`) before conversion.
+  exhibit, multiplied by the Museum Expansion bonus (`+5%` per level), then by
+  the companion + prestige museum multiplier (`[1, 2]`), and the authored
+  per-minute rate is capped at `5000/min` (`~83.3/sec`) before those multipliers.
 - While online, income auto-deposits every second. While offline it caps at the
   4-hour offline window (`24h` for VIP Pass holders) and at the pending ceiling
   (`5000`, or `20000` for VIP), and is held for the Welcome Back modal. The
@@ -79,6 +80,26 @@ stipend and as a multiplier on museum income; the resolver clamps it to
 `[1, 2]`. Companion capacity still competes with the 10-relic collection cap, and
 the Hound's weight reduction shares the same 80% ceiling as Sprint Boots and
 Strength training. Total companion cost is 6000 gold.
+
+## Museum Prestige
+
+Prestige is an optional, repeatable museum reset. It grants a permanent
+museum-income bonus and a cosmetic rank, never gold or combat power.
+
+- Each level grants `+5%` museum income; `MaxBonus = +50%` at level 10. The
+  bonus is additive with the Sun Scarab's `+10%` and is derived from
+  `prestigeLevel`, never stored as a separate value.
+- Ranks: level 1-4 `Curator`, 5-9 `Master Curator`, 10+ `Grand Curator`.
+- Eligibility: all seven museum upgrades maxed, all 14 pedestals occupied by
+  owned relics, `60s` since the previous prestige, no active expedition, and a
+  persistent save session.
+- Reset: gold returns to the starting `250`, relics and museum assignments are
+  cleared, and the seven museum upgrades return to level 0. Training, companions,
+  non-museum gear upgrades, temple unlocks, stats, settings, and VIP survive.
+- The full museum re-buy is about `16,729` gold; non-museum gear survives.
+  Prestige refunds nothing and does not multiply extraction income.
+- The UI explains the reset before confirming; the player must type `PRESTIGE`
+  and the server validates the exact string.
 
 ## Temples
 
@@ -177,7 +198,8 @@ are suppressed and the game stays fully playable.
   `HuntArriveTolerance`, `Chase.SpeedMultiplier`, `ContactCooldownSeconds`, and
   per-kind `aggroRange`/`contactRange`/`attackWindup`.
 - Reward: relic `value` and `incomePerMinute` (converted to `/sec` for the UI),
-  and `ExtractionValueToGold`.
+  `ExtractionValueToGold`, and `GameConfig.Prestige` (`BonusPerLevel`,
+  `MaxBonus`, `MinSecondsBetween`).
 - Pacing: `BasePedestals`, upgrade prices and growth.
 
 ## Balance status

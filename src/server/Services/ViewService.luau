@@ -12,6 +12,7 @@ local StatsUtil = require(script.Parent.Parent.Utilities.StatsUtil)
 local Inventory = require(ReplicatedStorage.Shared.Domain.Inventory)
 local MuseumBuilder = require(ReplicatedStorage.Shared.Domain.MuseumBuilder)
 local Progression = require(ReplicatedStorage.Shared.Domain.Progression)
+local Prestige = require(ReplicatedStorage.Shared.Domain.Prestige)
 local Tutorial = require(ReplicatedStorage.Shared.Domain.Tutorial)
 
 local ViewService = {}
@@ -54,7 +55,8 @@ function ViewService:Build(player: Player)
 	local floorLevel = upgrades.MuseumFloor or 0
 	local pedestalLevel = upgrades.ExtraPedestal or 0
 
-	local capacity = StatsUtil.forProfile(profile).capacity
+	local effective = StatsUtil.forProfile(profile)
+	local capacity = effective.capacity
 	local pedestalCount = Economy.pedestalCount(
 		movement.BasePedestals,
 		floorLevel,
@@ -67,8 +69,8 @@ function ViewService:Build(player: Player)
 	local exhibitedIncome, exhibitedCount = countExhibited(profile)
 	local incomeRate
 	if services.Economy and type(services.Economy.GetIncomeRate) == "function" then
-		-- The economy service owns the rate formula, including companion gold
-		-- bonuses, so the HUD and the deposit cannot disagree.
+		-- The economy service owns the rate formula, including companion and
+		-- prestige museum bonuses, so the HUD and the deposit cannot disagree.
 		incomeRate = services.Economy:GetIncomeRate(profile)
 	else
 		incomeRate = Economy.incomeRatePerSecond(
@@ -218,6 +220,38 @@ function ViewService:Build(player: Player)
 	local plot = services.Plot:GetPlot(player)
 	local ephemeral = services.PlayerData:IsEphemeral(player)
 
+	local prestigeLevel = profile.prestigeLevel or 0
+	local prestigeReport = Prestige.evaluate(profile, GameConfig.Prestige, GameConfig.MuseumBuilding.Wings, now)
+	local requirements = prestigeReport.checks
+	local onExpedition = expedition ~= nil
+	table.insert(requirements, {
+		id = "Expedition",
+		label = "Return from any expedition",
+		detail = onExpedition and "On an expedition" or "Ready",
+		met = not onExpedition,
+	})
+	table.insert(requirements, {
+		id = "Persistence",
+		label = "Persistent save available",
+		detail = ephemeral and "Progress is not saving" or "Ready",
+		met = not ephemeral,
+	})
+	local prestige = {
+		level = prestigeLevel,
+		rank = Prestige.rank(prestigeLevel, GameConfig.Prestige),
+		bonus = Prestige.bonus(prestigeLevel, GameConfig.Prestige),
+		nextBonus = Prestige.bonus(prestigeLevel + 1, GameConfig.Prestige),
+		incomeMultiplier = effective.museumIncomeMultiplier,
+		canPrestige = prestigeReport.eligible and not onExpedition and not ephemeral,
+		requirements = requirements,
+		resets = {
+			string.format("Gold resets to %d.", GameConfig.Prestige.StartingGold),
+			"Relics are donated and the museum is cleared.",
+			"Museum upgrades reset to level 0.",
+			"You keep training, companions, gear, temple unlocks, and settings.",
+		},
+	}
+
 	local stamina = nil
 	local staminaService = services.Stamina
 	if staminaService ~= nil then
@@ -276,6 +310,7 @@ function ViewService:Build(player: Player)
 		},
 		capacity = capacity,
 		armorLevel = armorLevel,
+		prestige = prestige,
 		stamina = stamina,
 		training = training,
 		companions = companions,

@@ -68,6 +68,8 @@ export type PlayerProfile = {
 	vip: boolean,
 	tutorialStep: number,
 	settings: PlayerSettings,
+	prestigeLevel: number,
+	lastPrestigeAt: number,
 }
 
 export type CarriedRelic = {

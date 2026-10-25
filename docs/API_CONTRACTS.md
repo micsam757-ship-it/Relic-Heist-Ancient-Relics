@@ -35,6 +35,7 @@ matches this table exactly, so the two cannot drift. Each handler validates its
 | `BuyCompanion` | `{ companionId }` | Spend gold; the first companion auto-equips |
 | `EquipCompanion` | `{ companionId }` | Must be owned; replaces the current companion |
 | `UnequipCompanion` | - | Clears the single equipped slot |
+| `Prestige` | `{ confirm = "PRESTIGE" }` | Resets the museum after a forced save; rejects during an expedition or an ephemeral session |
 | `UnlockTemple` | `{ templeId }` | |
 | `UpdateSettings` | `{ soundEnabled?, visualEffects?, reducedMotion?, colorblindMode?, textScale? }` | `textScale` must be `Normal`/`Large`/`Huge` |
 | `PlaceRelic` | `{ pedestalId, uid }` | Near the pedestal |
@@ -62,6 +63,12 @@ matches this table exactly, so the two cannot drift. Each handler validates its
     equipped = nil | companionId,
     maxEquipped,
     goldMultiplier,
+  },
+  prestige = {
+    level, rank = nil | string, bonus, nextBonus, incomeMultiplier,
+    canPrestige,
+    requirements = { { id, label, detail, met } },
+    resets = { "<human-readable reset line>" },
   },
   temples = { { id, name, description, difficulty, order, unlocked, requirementsMet, canUnlock, minExtractions, unlockPrice, requiredRelics, durationSeconds, relicCount } },
   expedition = nil | { templeId, templeName, startedAt, endsAt, collapsing, carried, weight, capacity, speedMultiplier, requiredRelics, durationSeconds, remainingRelics },

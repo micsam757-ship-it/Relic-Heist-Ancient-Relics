@@ -371,7 +371,7 @@ function Panels.Inventory(body, helpers)
 	end
 end
 
-function Panels.Museum(body)
+function Panels.Museum(body, helpers)
 	local header = Components.label(body, {
 		Text = "",
 		TextSize = Theme.TextSize.Small,
@@ -391,6 +391,85 @@ function Panels.Museum(body)
 			snapshot.exhibitedCount
 		)
 		clear(scroll)
+
+		local prestigeView = snapshot.prestige
+		if prestigeView ~= nil then
+			Components.label(scroll, {
+				Text = "PRESTIGE",
+				Font = Theme.Font.Heading,
+				TextSize = Theme.TextSize.Body,
+				TextColor = Theme.Color.Gold,
+				Size = UDim2.new(1, 0, 0, 24),
+			})
+			statRow(
+				scroll,
+				"Prestige level",
+				string.format("%d | %s", prestigeView.level or 0, prestigeView.rank or "Unranked")
+			)
+			statRow(
+				scroll,
+				"Museum income bonus",
+				string.format(
+					"+%d%% now | +%d%% next",
+					math.floor((prestigeView.bonus or 0) * 100 + 0.5),
+					math.floor((prestigeView.nextBonus or 0) * 100 + 0.5)
+				)
+			)
+			statRow(scroll, "Income multiplier", string.format("x%.2f", prestigeView.incomeMultiplier or 1))
+
+			Components.label(scroll, {
+				Text = "Requirements",
+				Font = Theme.Font.Heading,
+				TextSize = Theme.TextSize.Small,
+				TextColor = Theme.Color.Gold,
+				Size = UDim2.new(1, 0, 0, 20),
+			})
+			for _, requirement in prestigeView.requirements or {} do
+				local row = Components.panel(scroll, {
+					Size = UDim2.new(1, 0, 0, 26),
+					Color = Theme.Color.PanelAlt,
+					ClipsDescendants = true,
+				})
+				Components.label(row, {
+					Text = string.format("%s  %s", requirement.met and "OK" or "--", requirement.label),
+					TextSize = Theme.TextSize.Small,
+					TextColor = requirement.met and Theme.Color.Success or Theme.Color.Danger,
+					Size = UDim2.new(1, -130, 1, 0),
+					Position = UDim2.fromOffset(8, 0),
+				})
+				Components.label(row, {
+					Text = requirement.detail or "",
+					TextSize = Theme.TextSize.Small,
+					TextColor = Theme.Color.TextMuted,
+					AlignX = Enum.TextXAlignment.Right,
+					Size = UDim2.new(0, 112, 1, 0),
+					Position = UDim2.new(1, -120, 0, 0),
+					AlignY = Enum.TextYAlignment.Center,
+				})
+			end
+
+			local prestigeButton = Components.button(scroll, {
+				Text = prestigeView.canPrestige and "Prestige Museum" or "Prestige Locked",
+				Size = UDim2.new(1, 0, 0, 40),
+				Color = Theme.Color.DangerDeep,
+				OnClick = function()
+					if helpers and helpers.prestige then
+						helpers.prestige()
+					end
+				end,
+			})
+			Components.setDisabled(prestigeButton, not prestigeView.canPrestige)
+
+			for _, line in prestigeView.resets or {} do
+				Components.label(scroll, {
+					Text = line,
+					TextSize = Theme.TextSize.Small,
+					TextColor = Theme.Color.TextMuted,
+					Size = UDim2.new(1, 0, 0, 18),
+				})
+			end
+			Components.divider(scroll)
+		end
 
 		local function relicFor(uid)
 			if not uid then

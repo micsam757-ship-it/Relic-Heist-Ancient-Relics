@@ -37,6 +37,9 @@
 - Rarity is always encoded twice: a colored badge glyph (`C/R/L/M`) plus text,
   so it is not color-only.
 - Buttons disable to a dimmed state; destructive actions use the danger red.
+- A destructive reset (Museum Prestige) requires a typed `PRESTIGE` confirmation;
+  the confirm button stays disabled until the word matches, and the resets are
+  listed in plain language before it can be pressed.
 - `Theme.luau` holds all colors, fonts, radii, spacing, and rarity colors. It
   keeps a base palette and a colorblind-safe palette, selected by the player's
   `colorblindMode` setting.

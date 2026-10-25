@@ -7,7 +7,11 @@ local Schema = {}
 -- maximum level; this only keeps a damaged profile from storing nonsense.
 local MAX_TRAINING_XP = 1000000
 
-Schema.CURRENT_VERSION = 6
+-- Safety bound for the derived prestige reward. The design reaches its bonus cap
+-- at level 10; this only prevents a damaged profile from storing nonsense.
+local MAX_PRESTIGE_LEVEL = 1000
+
+Schema.CURRENT_VERSION = 7
 
 export type Profile = {
 	schemaVersion: number,
@@ -33,6 +37,9 @@ export type Profile = {
 	vip: boolean,
 	tutorialStep: number,
 	settings: { [string]: any },
+	-- Museum Prestige (v7). The reward is derived from the level, never stored.
+	prestigeLevel: number,
+	lastPrestigeAt: number,
 }
 
 local function safeNumber(value: any, fallback: number): number
@@ -86,6 +93,8 @@ function Schema.createDefault(now: number, sessionId: string, startingGold: numb
 		pendingOfflineGold = 0,
 		vip = false,
 		tutorialStep = 0,
+		prestigeLevel = 0,
+		lastPrestigeAt = 0,
 		settings = {
 			soundEnabled = true,
 			visualEffects = true,
@@ -172,6 +181,18 @@ migrations[5] = function(profile, _now)
 	return profile
 end
 
+migrations[6] = function(profile, _now)
+	-- v7 adds Museum Prestige. Existing players start at level 0 and have never
+	-- prestiged; any prestige data already present is preserved.
+	if profile.prestigeLevel == nil then
+		profile.prestigeLevel = 0
+	end
+	if profile.lastPrestigeAt == nil then
+		profile.lastPrestigeAt = 0
+	end
+	return profile
+end
+
 function Schema.migrate(rawProfile: any, now: number): (Profile?, boolean?, string?)
 	if type(rawProfile) ~= "table" then
 		return nil, nil, "Profile is not a table"
@@ -221,6 +242,8 @@ function Schema.normalize(profile: Profile, now: number): Profile
 	profile.pendingOfflineGold = math.max(0, math.floor(safeNumber(profile.pendingOfflineGold, 0)))
 	profile.vip = safeBoolean(profile.vip, false)
 	profile.tutorialStep = math.max(0, math.floor(safeNumber(profile.tutorialStep, 0)))
+	profile.prestigeLevel = math.clamp(math.floor(safeNumber(profile.prestigeLevel, 0)), 0, MAX_PRESTIGE_LEVEL)
+	profile.lastPrestigeAt = math.clamp(math.floor(safeNumber(profile.lastPrestigeAt, 0)), 0, now)
 	profile.schemaVersion = Schema.CURRENT_VERSION
 
 	local stats = safeTable(profile.stats)

@@ -258,6 +258,18 @@ function PlayerDataService:MarkDirty(player: Player)
 	state.ctx.Signals.ProfileChanged:Fire(player)
 end
 
+-- Replaces the in-memory profile without saving or normalizing it. Used by
+-- Prestige to swap in a pure reset copy and to roll back if the forced save
+-- fails. The caller owns validation and must persist before side effects.
+function PlayerDataService:SwapProfile(player: Player, newProfile): boolean
+	local handle = state.profiles[player]
+	if handle == nil or not handle.loaded or type(newProfile) ~= "table" then
+		return false
+	end
+	handle.data = newProfile
+	return true
+end
+
 -- Development-only: replace the in-memory profile for a player.
 function PlayerDataService:ReplaceProfile(player: Player, newProfile)
 	local handle = state.profiles[player]

@@ -146,6 +146,15 @@ referenced by `docs/traceability/requirements-matrix.md`.
   Ownership and the equipped id persist in schema v6. The client shows owned and
   equipped state and disables unaffordable recruits. See
   `docs/ADR/0013-companions.md`.
+- **FR-032** Museum Prestige is an optional, repeatable reset available only when
+  every museum upgrade is maxed, every pedestal is occupied, the cooldown has
+  elapsed, no expedition is active, and the session persists. It resets gold,
+  relics, the museum, and the seven museum upgrades while preserving training,
+  companions, non-museum gear, temple unlocks, stats, settings, and VIP. Each
+  level grants a derived `+5%` museum-income bonus (capped at `+50%`) and a rank.
+  The reset copy is saved before side effects; a failed forced save restores the
+  original profile. Profiles migrate to schema v7. See
+  `docs/ADR/0014-prestige-reset.md`.
 
 ## Data requirements
 

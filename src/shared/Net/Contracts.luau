@@ -32,6 +32,7 @@ local actions: { [string]: ActionSpec } = {
 	PurchaseOfflineDouble = {},
 	PurchaseInstantRevive = {},
 	DeclineInstantRevive = {},
+	Prestige = { requires = { "confirm" } },
 }
 
 Contracts.Actions = actions

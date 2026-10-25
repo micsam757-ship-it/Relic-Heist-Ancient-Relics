@@ -6,6 +6,7 @@ local Economy = require("../src/shared/Domain/Economy")
 local Encumbrance = require("../src/shared/Domain/Encumbrance")
 local Companions = require("../src/shared/Domain/Companions")
 local Inventory = require("../src/shared/Domain/Inventory")
+local Prestige = require("../src/shared/Domain/Prestige")
 local Progression = require("../src/shared/Domain/Progression")
 local RunRules = require("../src/shared/Domain/RunRules")
 local Schema = require("../src/shared/Domain/Schema")
@@ -1128,6 +1129,7 @@ local DOCUMENTED_ACTIONS = {
 	"EnterExpedition",
 	"EquipCompanion",
 	"PlaceRelic",
+	"Prestige",
 	"PurchaseInstantRevive",
 	"PurchaseOfflineDouble",
 	"RemoveRelic",
@@ -1177,6 +1179,13 @@ test("contract check enforces every required field of a multi-field action", fun
 	assertFalse(Contracts.check("PlaceRelic", { pedestalId = "1" }), "missing uid rejected")
 	assertFalse(Contracts.check("PlaceRelic", { uid = "r1" }), "missing pedestalId rejected")
 	assertTrue(Contracts.check("PlaceRelic", { pedestalId = "1", uid = "r1" }), "both fields accepted")
+end)
+
+test("contract check requires the prestige confirmation string", function()
+	assertFalse(Contracts.check("Prestige", nil), "nil data rejected")
+	assertFalse(Contracts.check("Prestige", {}), "missing confirm rejected")
+	assertFalse(Contracts.check("Prestige", { confirm = 5 }), "non-string confirm rejected")
+	assertTrue(Contracts.check("Prestige", { confirm = "PRESTIGE" }), "confirmation accepted")
 end)
 
 test("contract profile requirement defaults to true and honors exemptions", function()
@@ -1756,6 +1765,208 @@ test("relic income totals stay under the museum rate cap", function()
 		total <= GameConfig.Museum.MaxIncomeRatePerMinute,
 		string.format("relic income %d exceeds cap %d", total, GameConfig.Museum.MaxIncomeRatePerMinute)
 	)
+end)
+
+-- Museum Prestige (ADR 0014) ------------------------------------------------
+
+local function assertNear(actual, expected, tolerance, message)
+	if math.abs(actual - expected) > (tolerance or 1e-9) then
+		error(
+			string.format("%s: expected ~%s, got %s", message or "assertNear", tostring(expected), tostring(actual)),
+			2
+		)
+	end
+end
+
+local function countKeys(value)
+	local count = 0
+	for _ in pairs(value or {}) do
+		count += 1
+	end
+	return count
+end
+
+local function totalMuseumPedestals()
+	local total = 0
+	for _, wing in GameConfig.MuseumBuilding.Wings do
+		total += #wing.pedestalSlots
+	end
+	return total
+end
+
+local function completeMuseumProfile()
+	local profile = Schema.createDefault(1000, "prestige-session", GameConfig.Economy.StartingGold)
+	for _, id in GameConfig.Prestige.ResetUpgradeIds do
+		profile.upgrades[id] = GameConfig.Upgrades[id].maxLevel
+	end
+	for index = 1, totalMuseumPedestals() do
+		local uid = "relic_" .. tostring(index)
+		profile.relics[uid] = { id = "ClayAnkh", acquiredAt = 1 }
+		profile.museum[tostring(index)] = uid
+	end
+	return profile
+end
+
+test("prestige bonus is additive, level-capped and bounded", function()
+	local config = GameConfig.Prestige
+	assertEquals(Prestige.bonus(0, config), 0, "no bonus at level 0")
+	assertNear(Prestige.bonus(5, config), 0.25, 1e-9, "five levels")
+	assertNear(Prestige.bonus(99, config), config.MaxBonus, 1e-9, "capped")
+	assertNear(Prestige.multiplier(10, config), 1 + config.MaxBonus, 1e-9, "multiplier includes the base")
+	assertTrue(config.MaxBonus > 0 and config.MaxBonus <= 1, "bonus cap is bounded")
+	assertNear(config.MaxLevel * config.BonusPerLevel, config.MaxBonus, 1e-9, "level and bonus caps agree")
+end)
+
+test("prestige rank titles are derived from level", function()
+	local config = GameConfig.Prestige
+	assertEquals(Prestige.rank(0, config), nil, "unranked")
+	assertEquals(Prestige.rank(1, config), "Curator", "first rank")
+	assertEquals(Prestige.rank(4, config), "Curator", "still curator")
+	assertEquals(Prestige.rank(5, config), "Master Curator", "master curator")
+	assertEquals(Prestige.rank(10, config), "Grand Curator", "grand curator")
+	assertEquals(Prestige.rank(99, config), "Grand Curator", "rank caps")
+end)
+
+test("prestige reset upgrade ids exactly cover the museum upgrade set", function()
+	local expected = { MuseumFloor = true, ExtraPedestal = true }
+	local expectedCount = 2
+	for _, id in GameConfig.MuseumBuilding.Enhancements do
+		expected[id] = true
+		expectedCount += 1
+	end
+	local seen = {}
+	for _, id in GameConfig.Prestige.ResetUpgradeIds do
+		assertTrue(expected[id] == true, id .. " is a museum upgrade")
+		assertTrue(seen[id] == nil, id .. " appears once")
+		assertTrue(GameConfig.Upgrades[id] ~= nil, id .. " has an upgrade definition")
+		seen[id] = true
+	end
+	assertEquals(#GameConfig.Prestige.ResetUpgradeIds, expectedCount, "no museum upgrade is missing")
+end)
+
+test("prestige eligibility requires every upgrade, pedestal, and the cooldown", function()
+	local config = GameConfig.Prestige
+	local wings = GameConfig.MuseumBuilding.Wings
+	local now = 2000
+	local profile = completeMuseumProfile()
+	assertTrue(Prestige.canPrestige(profile, config, wings, now), "complete museum is eligible")
+
+	local missingUpgrade = completeMuseumProfile()
+	missingUpgrade.upgrades.MuseumFloor -= 1
+	assertFalse(Prestige.canPrestige(missingUpgrade, config, wings, now), "missing upgrade blocks")
+
+	local emptyPedestal = completeMuseumProfile()
+	emptyPedestal.museum["1"] = nil
+	assertFalse(Prestige.canPrestige(emptyPedestal, config, wings, now), "empty pedestal blocks")
+
+	local cooling = completeMuseumProfile()
+	cooling.lastPrestigeAt = now - config.MinSecondsBetween + 1
+	assertFalse(Prestige.canPrestige(cooling, config, wings, now), "cooldown blocks")
+
+	local ready = completeMuseumProfile()
+	ready.lastPrestigeAt = now - config.MinSecondsBetween
+	assertTrue(Prestige.canPrestige(ready, config, wings, now), "cooldown expires")
+end)
+
+test("prestige apply changes exactly the reset allowlist and preserves survivors", function()
+	local config = GameConfig.Prestige
+	local profile = completeMuseumProfile()
+	profile.gold = 9999
+	profile.pendingOfflineGold = 321
+	profile.stats.extractions = 7
+	profile.training.strength = 555
+	profile.companions.SunScarab = true
+	profile.equippedCompanion = "SunScarab"
+	profile.unlockedTemples.ForgottenCatacombs = true
+	profile.upgrades.SprintBoots = 3
+	profile.upgrades.CustomGear = 4
+	profile.settings.textScale = "Large"
+	profile.unknownFutureField = "keep"
+	local now = 5000
+
+	local nextProfile = Prestige.apply(profile, config, now)
+	assertTrue(nextProfile ~= profile, "input is not mutated")
+	assertEquals(profile.gold, 9999, "old profile keeps its gold")
+	assertEquals(nextProfile.gold, config.StartingGold, "gold resets")
+	assertEquals(countKeys(nextProfile.relics), 0, "relics cleared")
+	assertEquals(countKeys(nextProfile.museum), 0, "museum cleared")
+	for _, id in config.ResetUpgradeIds do
+		assertEquals(nextProfile.upgrades[id], 0, id .. " resets")
+	end
+	assertEquals(nextProfile.upgrades.SprintBoots, 3, "gear survives")
+	assertEquals(nextProfile.upgrades.CustomGear, 4, "unknown upgrade survives")
+	assertEquals(nextProfile.training.strength, 555, "training survives")
+	assertEquals(nextProfile.companions.SunScarab, true, "companions survive")
+	assertEquals(nextProfile.equippedCompanion, "SunScarab", "equipped companion survives")
+	assertEquals(nextProfile.unlockedTemples.ForgottenCatacombs, true, "temple unlock survives")
+	assertEquals(nextProfile.settings.textScale, "Large", "settings survive")
+	assertEquals(nextProfile.stats.extractions, 7, "stats survive")
+	assertEquals(nextProfile.unknownFutureField, "keep", "unknown keys survive")
+	assertEquals(nextProfile.pendingOfflineGold, 0, "pending offline gold clears")
+	assertEquals(nextProfile.lastIncomeClaimAt, now, "claim timestamp resets")
+	assertEquals(nextProfile.prestigeLevel, 1, "level increments")
+	assertEquals(nextProfile.lastPrestigeAt, now, "prestige timestamp records")
+
+	local again = Prestige.apply(nextProfile, config, now + 1)
+	assertEquals(again.prestigeLevel, 2, "repeat increments")
+	assertEquals(again.lastPrestigeAt, now + 1, "repeat records")
+end)
+
+test("schema v6 migrates to v7 with prestige defaults", function()
+	local v6 = Schema.createDefault(100, "v6", 250)
+	v6.schemaVersion = 6
+	v6.prestigeLevel = nil
+	v6.lastPrestigeAt = nil
+	v6.gold = 777
+	v6.training.carrying = 42
+	v6.companions.SunScarab = true
+	v6.equippedCompanion = "SunScarab"
+	local migrated, didMigrate = Schema.migrate(v6, 50)
+	assertTrue(migrated ~= nil, "migrated")
+	assertTrue(didMigrate, "flagged as migrated")
+	assertEquals(migrated.schemaVersion, 7, "current version")
+	assertEquals(migrated.prestigeLevel, 0, "level seeded")
+	assertEquals(migrated.lastPrestigeAt, 0, "timestamp seeded")
+	assertEquals(migrated.gold, 777, "gold preserved")
+	assertEquals(migrated.training.carrying, 42, "training preserved")
+	assertEquals(migrated.equippedCompanion, "SunScarab", "companions preserved")
+end)
+
+test("schema v6 migration preserves existing prestige values", function()
+	local v6 = Schema.createDefault(100, "v6", 250)
+	v6.schemaVersion = 6
+	v6.prestigeLevel = 4
+	v6.lastPrestigeAt = 40
+	local migrated = Schema.migrate(v6, 50)
+	assertEquals(migrated.prestigeLevel, 4, "level preserved")
+	assertEquals(migrated.lastPrestigeAt, 40, "timestamp preserved")
+end)
+
+test("normalize clamps prestige level and timestamp", function()
+	local profile = Schema.createDefault(100, "s", 250)
+	profile.prestigeLevel = -5
+	profile.lastPrestigeAt = -9
+	local normalized = Schema.normalize(profile, 200)
+	assertEquals(normalized.prestigeLevel, 0, "negative level clamped")
+	assertEquals(normalized.lastPrestigeAt, 0, "negative timestamp clamped")
+
+	profile.prestigeLevel = 99999
+	profile.lastPrestigeAt = 999
+	normalized = Schema.normalize(profile, 200)
+	assertEquals(normalized.prestigeLevel, 1000, "level safety cap")
+	assertEquals(normalized.lastPrestigeAt, 200, "timestamp cannot be in the future")
+end)
+
+test("stats combine companion and prestige for museum income only", function()
+	local base = Stats.resolve(GameConfig.StatConfig, {}, {}, nil, 0)
+	assertEquals(base.museumIncomeMultiplier, 1, "no bonuses")
+	local prestigeOnly = Stats.resolve(GameConfig.StatConfig, {}, {}, nil, 0.5)
+	assertNear(prestigeOnly.museumIncomeMultiplier, 1.5, 1e-9, "prestige bonus")
+	assertEquals(prestigeOnly.goldMultiplier, 1, "extraction stays companion-only")
+	local both = Stats.resolve(GameConfig.StatConfig, {}, {}, { GoldMultiplier = 0.1 }, 0.5)
+	assertNear(both.museumIncomeMultiplier, 1.6, 1e-9, "bonuses stack")
+	assertNear(both.goldMultiplier, 1.1, 1e-9, "gold multiplier ignores prestige")
+	assertEquals(Stats.museumIncomeMultiplier(nil, 99), 2, "museum multiplier is capped")
 end)
 
 -- Summary ------------------------------------------------------------------

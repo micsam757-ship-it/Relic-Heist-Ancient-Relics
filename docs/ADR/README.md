@@ -18,6 +18,7 @@ Decision, Consequences, Alternatives.
 | [0011](0011-endgame-temple-and-revive.md) | Endgame Void Citadel, difficulty ramp, and Instant Revive | Accepted |
 | [0012](0012-stamina-stats-training.md) | Sprint stamina, one stat resolver, and passive training | Accepted |
 | [0013](0013-companions.md) | Relic Companions MVP | Accepted |
+| [0014](0014-prestige-reset.md) | Museum Prestige reset and schema v7 | Accepted |
 
 Add a new ADR (next number) whenever a change alters architecture, security,
 persistence, or a public contract. Never edit an accepted ADR's decision; add a

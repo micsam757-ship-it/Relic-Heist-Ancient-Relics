@@ -11,6 +11,7 @@ local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
 local Stats = require(ReplicatedStorage.Shared.Domain.Stats)
 local Training = require(ReplicatedStorage.Shared.Domain.Training)
 local Companions = require(ReplicatedStorage.Shared.Domain.Companions)
+local Prestige = require(ReplicatedStorage.Shared.Domain.Prestige)
 
 local StatsUtil = {}
 
@@ -26,13 +27,21 @@ function StatsUtil.companionBonuses(profile)
 	return Companions.bonuses(GameConfig.Companions.Definitions, equipped)
 end
 
--- The effective stats for a profile: upgrades plus training plus companions.
+-- Additive bonus fraction from the profile's Museum Prestige level.
+function StatsUtil.prestigeBonus(profile)
+	local level = profile and profile.prestigeLevel or 0
+	return Prestige.bonus(level, GameConfig.Prestige)
+end
+
+-- The effective stats for a profile: upgrades plus training plus companions plus
+-- the derived prestige bonus.
 function StatsUtil.forProfile(profile)
 	return Stats.resolve(
 		GameConfig.StatConfig,
 		profile and profile.upgrades or {},
 		StatsUtil.trainingLevels(profile),
-		StatsUtil.companionBonuses(profile)
+		StatsUtil.companionBonuses(profile),
+		StatsUtil.prestigeBonus(profile)
 	)
 end
 

@@ -49,6 +49,7 @@ Status legend:
 | FR-029 sprint stamina | `GameConfig.Stamina/Movement`, `Stamina` (pool rules), `StaminaService` (server pool, speed, push), `InputController` (Shift/L3 intent), `Contracts.SetSprint`, `UIRoot` stamina bar | Tested (domain + tuning); Validated (build); Manual-only (in-session sprint) |
 | FR-030 passive training + stat resolver | `GameConfig.Training/StatConfig`, `Training` (curve/levels), `Stats` (effective stats), `StatsUtil`, `TrainingService` (relic/extraction/temple-time hooks), `Schema` v5, `ViewService.training`, `Panels.Settings` | Tested (curve, clamping, resolver, temple XP, migration); Validated (build); Manual-only (in-session awards) |
 | FR-031 relic companions | `GameConfig.Companions`, `Companions` (ownership/equip/bonuses), `CompanionService`, `Stats/StatsUtil` (bonus consumer), `Schema` v6, `ViewService.companions`, `Panels.Companions`, `Contracts` actions | Tested (domain, bonuses, schema v6, config, contracts); Validated (build); Manual-only (purchase/equip in session) |
+| FR-032 museum prestige | `GameConfig.Prestige`, `Prestige` (eligibility/reset/bonus/rank), `PrestigeService` (forced-save rollback, `PrestigeApplied`), `PlayerDataService:SwapProfile`, `Stats/StatsUtil` (museum multiplier), `Schema` v7, `ViewService.prestige`, `Panels.Museum`, `UIRoot.openPrestigeConfirm`, `Contracts.Prestige` | Tested (domain, reset allowlist, migration, normalization, stats, config, contracts); Validated (build); Manual-only (Session M) |
 
 ## Non-functional requirements
 
@@ -118,4 +119,4 @@ luau tests/run_tests.luau
 luau-analyze src/shared/Domain
 ```
 
-Or run them all: `pwsh scripts/check.ps1`.
+Or run them all: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1`.

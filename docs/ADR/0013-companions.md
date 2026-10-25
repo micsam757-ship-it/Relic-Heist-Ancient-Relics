@@ -54,7 +54,7 @@ calculation of capacity, health, stamina, or gold.
   `UnequipCompanion` (no data). All are server-validated and rate-limited.
   Purchase, equip, and unequip re-apply existing effects (health, stamina pool,
   movement) and mark the profile dirty. With these, the documented action
-  registry has 16 actions.
+  registry had 16 actions at the time; it has 17 after ADR 0014 adds `Prestige`.
 - The client's `Relic Companions` panel lists definitions by cost, shows rarity,
   ownership, the equipped state, and a Recruit/Equip/Unequip button. The Recruit
   button is disabled when the player cannot afford the cost. The panel is
