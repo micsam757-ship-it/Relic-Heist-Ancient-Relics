@@ -8,7 +8,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
 local Schema = require(ReplicatedStorage.Shared.Domain.Schema)
+local Economy = require(ReplicatedStorage.Shared.Domain.Economy)
 local Inventory = require(ReplicatedStorage.Shared.Domain.Inventory)
+local MuseumBuilder = require(ReplicatedStorage.Shared.Domain.MuseumBuilder)
 local Ids = require(script.Parent.Parent.Utilities.Ids)
 local Logger = require(script.Parent.Parent.Utilities.Logger)
 
@@ -31,7 +33,10 @@ end
 local commands = {}
 
 commands.help = function(player)
-	reply(player, "Commands: !rh_state, !rh_gold <n>, !rh_relic <id>, !rh_save, !rh_unlock <temple>, !rh_reset")
+	reply(
+		player,
+		"Commands: !rh_state, !rh_gold <n>, !rh_relic <id>, !rh_fillmuseum, !rh_save, !rh_unlock <temple>, !rh_reset, !rh_failsave [on|off]"
+	)
 end
 
 commands.state = function(player)
@@ -44,9 +49,22 @@ commands.state = function(player)
 	for _ in profile.relics do
 		relicCount += 1
 	end
+	local museumCount = 0
+	for _ in profile.museum do
+		museumCount += 1
+	end
 	reply(
 		player,
-		string.format("gold=%d relics=%d extractions=%d", profile.gold, relicCount, profile.stats.extractions)
+		string.format(
+			"gold=%d relics=%d museum=%d extractions=%d prestigeLevel=%d lastPrestigeAt=%d ephemeral=%s",
+			profile.gold,
+			relicCount,
+			museumCount,
+			profile.stats.extractions,
+			profile.prestigeLevel or 0,
+			profile.lastPrestigeAt or 0,
+			tostring(state.ctx.Services.PlayerData:IsEphemeral(player))
+		)
 	)
 end
 
@@ -80,9 +98,89 @@ commands.relic = function(player, argument)
 	end
 end
 
+commands.fillmuseum = function(player)
+	local profile = state.ctx.Services.PlayerData:GetProfile(player)
+	if profile == nil then
+		reply(player, "Profile not loaded.")
+		return
+	end
+	local total = MuseumBuilder.totalPedestals(GameConfig.MuseumBuilding.Wings)
+	local limit = math.min(
+		Economy.pedestalCount(
+			GameConfig.Movement.BasePedestals,
+			profile.upgrades.MuseumFloor or 0,
+			GameConfig.Upgrades.MuseumFloor.perLevel,
+			profile.upgrades.ExtraPedestal or 0,
+			GameConfig.Upgrades.ExtraPedestal.perLevel,
+			GameConfig.Museum.MaxPedestals or total
+		),
+		total
+	)
+	local owned = {}
+	for uid in profile.relics do
+		if not Inventory.isExhibited(profile, uid) then
+			table.insert(owned, uid)
+		end
+	end
+	table.sort(owned)
+	local nextOwned = 1
+	local placed = 0
+	for index = 1, limit do
+		local pedestalId = tostring(index)
+		if profile.museum[pedestalId] == nil then
+			local uid = owned[nextOwned]
+			if uid == nil then
+				break
+			end
+			nextOwned += 1
+			local success = Inventory.exhibit(profile, uid, pedestalId, limit)
+			if success then
+				placed += 1
+			end
+		end
+	end
+	local occupied = 0
+	for _, uid in profile.museum do
+		if profile.relics[uid] ~= nil then
+			occupied += 1
+		end
+	end
+	if placed > 0 then
+		state.ctx.Services.PlayerData:MarkDirty(player)
+		state.ctx.Services.Museum:Refresh(player)
+	end
+	if occupied >= limit then
+		reply(player, string.format("Museum filled: %d/%d pedestals.", occupied, limit))
+	else
+		reply(
+			player,
+			string.format(
+				"Museum filled: %d/%d pedestals. Grant %d more relics with !rh_relic <id>.",
+				occupied,
+				limit,
+				limit - occupied
+			)
+		)
+	end
+end
+
 commands.save = function(player)
 	state.ctx.Services.PlayerData:SaveAsync(player, true)
 	reply(player, "Save requested.")
+end
+
+commands.failsave = function(player, argument)
+	local mode = string.lower(argument or "on")
+	if mode ~= "on" and mode ~= "off" then
+		reply(player, "Usage: !rh_failsave [on|off]")
+		return
+	end
+	local enabled = mode == "on"
+	if not state.ctx.Services.PlayerData:ArmSaveFailure(player, enabled) then
+		reply(player, "Profile not loaded.")
+		return
+	end
+	reply(player, enabled and "Next forced save will fail." or "Forced-save failure disarmed.")
 end
 
 commands.unlock = function(player, argument)

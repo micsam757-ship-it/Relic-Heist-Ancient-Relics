@@ -46,11 +46,11 @@ a plain file in this repository, not a Studio-only object.
 | Path | What lives there |
 | --- | --- |
 | `src/shared/` | Pure, testable code: `GameConfig` (all content/balance data), domain rules (economy, encumbrance, inventory, progression, run rules, schema, tutorial, museum layout), network contracts, utilities |
-| `src/server/` | Server services (18), world builders (8), rate limiter, boot script |
+| `src/server/` | Server services (22), world builders (8), rate limiter, boot script |
 | `src/client/` | UI layer (UIRoot, Panels, Components, Theme), input/sound/effects controllers, state store, networking wrapper |
-| `tests/` | `run_tests.luau` (110 assertions, no Roblox needed) and `bench.luau` |
+| `tests/` | `run_tests.luau` (151 assertions, no Roblox needed) and `bench.luau` |
 | `scripts/check.ps1` | One-command validation pipeline |
-| `docs/` | 29 documents: vision, SRS, architecture, balance, threat model, test plans, 11 ADRs, and more |
+| `docs/` | 32 documents: vision, SRS, architecture, balance, threat model, test plans, 14 ADRs, and more |
 | `build/` | Local place-file builds (gitignored — not source, not backups) |
 | `documentation/` | **This handbook package** (Word handbook, README, recovery guide) |
 
@@ -76,15 +76,17 @@ plugin inside Studio.
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check.ps1
 ```
 
-Expected: `All checks passed.` (rojo build, formatting, lint, 110 assertions,
-benchmarks, type check). Last full run on this machine: **2026-10-22, all green.**
+Expected: `All checks passed.` (rojo build, formatting, lint, 151 assertions,
+benchmarks, type check). Last full run on this machine: **2026-10-25, all green.**
 
 **Manual playtesting:** follow the session-by-session script in
-`docs/STUDIO_TEST_PLAN.md` (Sessions A–K). Enable Studio API services for the
-persistence session; without them the game runs in ephemeral "no save" mode.
+`docs/STUDIO_TEST_PLAN.md` (Sessions A–M). Enable Studio API services for the
+persistence and prestige sessions; without them the game runs in ephemeral
+"no save" mode.
 
 **Testing helpers (Studio only):** `!rh_help`, `!rh_state`, `!rh_gold <n>`,
-`!rh_relic <id>`, `!rh_unlock <templeId>`, `!rh_save`, `!rh_reset` in chat.
+`!rh_relic <id>`, `!rh_fillmuseum`, `!rh_unlock <templeId>`, `!rh_save`,
+`!rh_reset`, `!rh_failsave [on|off]` in chat.
 
 ## Known issues (summary — full list in the handbook, Section 11)
 

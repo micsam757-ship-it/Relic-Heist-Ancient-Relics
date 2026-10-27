@@ -35,7 +35,7 @@ accessibility, touch/gamepad) remain partially verified.
 | Sprint stamina (FR-029) | Implemented + tested (domain/config) | Server-authoritative pool; `SetSprint` intent; Shift/L3 hold; exhaustion and HUD bar; in-Studio sprint not yet playtested |
 | Passive training + stats resolver (added in schema v5) | Implemented + tested (domain/config) | `Training` experience curve, `Stats` effective-stat resolver, `StatsUtil` profile bridge; XP from relics, extractions and temple time; Settings panel lists levels/XP; in-Studio flow not yet playtested |
 | Relic Companions (Phase 1 MVP, schema v6) | Implemented + tested (domain/config) | Three gold-purchased companions, server-owned ownership and one equipped slot, bonuses through `StatsUtil`/`Stats` (including a clamped gold multiplier), persistence/migration, and a `C`-key panel; purchase/equip not yet playtested in Studio |
-| Museum Prestige (Phase 3, ADR 0014) | Implemented + tested (domain/config); save transaction unverified in live DataStore | Accepted ADR 0014. Schema v7, pure `Prestige` eligibility/reset/reward rules, `PrestigeService` forced-save rollback, `PrestigeApplied` single refresh, Museum panel section and typed `PRESTIGE` confirmation. Ten new tests cover the curve, allowlist, eligibility, apply survivors, migration, normalization and museum-only stats. Studio Session M and live save-failure behavior pending |
+| Museum Prestige (Phase 3, ADR 0014) | Implemented + tested (domain/config); save transaction unverified in live DataStore | Accepted ADR 0014. Schema v7, pure `Prestige` eligibility/reset/reward rules, `PrestigeService` forced-save rollback, `PrestigeApplied` single refresh, Museum panel section and typed `PRESTIGE` confirmation. Ten new tests cover the curve, allowlist, eligibility, apply survivors, migration, normalization and museum-only stats. Studio Session M pending; `!rh_failsave` can exercise rollback, while a real DataStore outage remains unverified |
 | Client UI (top bar, HUD, 6 panels, summaries, prompts, tutorial objective) | Implemented + validated (build) | Keyboard + touch + gamepad path wired |
 | Tutorial (data-driven step sequencer) | Implemented + tested (domain/config) | Server-authoritative progression; never gates play; in-Studio flow not yet playtested |
 | Accessibility settings (text size, reduced motion, colorblind palette) | Implemented + tested (schema/config) | Server-validated; applied via `Preferences`/`Theme`; not yet playtested in Studio |
@@ -185,7 +185,9 @@ confirmed here and the Guardian fix in particular still needs a replay:
    and survivor paths. Tick each item and record anything unexpected in the
    Output window.
 2. Confirm DataStore persistence and the prestige forced-save rollback by
-   replaying a session with API services enabled and rejoining.
+   replaying a session with API services enabled and rejoining. Use
+   `!rh_failsave` for the rollback branch, `!rh_fillmuseum` to fill the exhibits,
+   and `!rh_state` to inspect prestige fields.
 3. Run the full CI check set before committing:
    `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check.ps1` (or the
    individual commands above).

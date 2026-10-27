@@ -103,6 +103,7 @@ local function loadProfile(player: Player)
 		saving = false,
 		loaded = false,
 		conflict = false,
+		failNextSave = false,
 	}
 	state.profiles[player] = handle
 
@@ -195,6 +196,11 @@ function PlayerDataService:SaveAsync(player: Player, force: boolean): boolean
 	if handle.saving then
 		return false
 	end
+	if force and handle.failNextSave then
+		handle.failNextSave = false
+		state.logger:warn("Injected forced-save failure for %s", player.Name)
+		return false
+	end
 	if not force and not handle.dirty then
 		return true
 	end
@@ -246,6 +252,20 @@ end
 function PlayerDataService:IsEphemeral(player: Player): boolean
 	local handle = state.profiles[player]
 	return handle ~= nil and handle.ephemeral
+end
+
+-- Development-only: make the next forced save fail without touching DataStore.
+-- Used by the Studio Session M rollback test; cleared when consumed.
+function PlayerDataService:ArmSaveFailure(player: Player, enabled: boolean): boolean
+	if not RunService:IsStudio() then
+		return false
+	end
+	local handle = state.profiles[player]
+	if handle == nil or not handle.loaded then
+		return false
+	end
+	handle.failNextSave = enabled == true
+	return true
 end
 
 function PlayerDataService:MarkDirty(player: Player)

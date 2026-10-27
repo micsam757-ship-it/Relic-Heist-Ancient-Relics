@@ -26,7 +26,8 @@ Prerequisites for the DataStore and monetization sessions (see Blockers):
   today; the pool is intentionally silent until then).
 
 Admin commands are available in Studio via chat: `!rh_help`, `!rh_state`,
-`!rh_gold <n>`, `!rh_relic <id>`, `!rh_save`, `!rh_unlock <temple>`, `!rh_reset`.
+`!rh_gold <n>`, `!rh_relic <id>`, `!rh_fillmuseum`, `!rh_save`,
+`!rh_unlock <temple>`, `!rh_reset`, `!rh_failsave [on|off]`.
 
 ---
 
@@ -219,20 +220,24 @@ Use `!rh_gold` to afford the companions; use `!rh_state` to check saved fields.
 
 ## Session M — Museum Prestige (ADR 0014)
 
-Use `!rh_gold` and the admin upgrade commands to fill the museum; use
-`!rh_state` to inspect `prestigeLevel` and `lastPrestigeAt`. Prestige is
-irreversible, so test on a throwaway account/profile.
+Set up with `!rh_gold 1000000`, then max the seven museum upgrades through the
+Museum panel. Grant 14 relics with `!rh_relic <id>`, then run
+`!rh_fillmuseum` (or place them manually). Use `!rh_state` to inspect gold,
+relics, museum count, extractions, `prestigeLevel`, `lastPrestigeAt`, and
+`ephemeral`. `!rh_failsave` arms a one-shot forced-save
+failure for M8; `!rh_failsave off` disarms it. Prestige is irreversible, so test
+on a throwaway account/profile.
 
 | # | Check | Steps | Expected | Result |
 | --- | --- | --- | --- | --- |
 | M1 | Prestige panel | Open the Museum panel with a fresh profile | Prestige section shows level 0, no rank, `+0%`, next `+5%`, and every requirement unmet; the button is disabled | |
-| M2 | Requirement checklist | Max the seven museum upgrades and fill all 14 pedestals | Every checklist row turns met; expedition and persistence rows stay met only outside a run and in a saving session | |
+| M2 | Requirement checklist | Max the seven museum upgrades and fill all 14 pedestals (`!rh_fillmuseum`) | Every checklist row turns met; expedition and persistence rows stay met only outside a run and in a saving session | |
 | M3 | Confirmation gate | Click Prestige, type a partial phrase or something other than `PRESTIGE` | The confirm button stays disabled until the typed word matches (case-insensitive); Cancel closes without a request | |
 | M4 | Successful prestige | Type `PRESTIGE` and confirm | Gold becomes 250; relics and museum are empty; the seven museum upgrades are 0; level becomes 1 and bonus `+5%`; the plot and museum refresh once; training, companions, non-museum gear, temple unlocks, stats, settings and VIP survive; success toast appears | |
-| M5 | Repeat and cooldown | Immediately refill the museum and try again within 60s, then after 60s | The first attempt shows the cooldown row unmet; after 60s a second prestige reaches level 2 with `+10%` | |
+| M5 | Repeat and cooldown | Immediately refill with `!rh_relic` + `!rh_fillmuseum` and try again within 60s, then after 60s | The first attempt shows the cooldown row unmet; after 60s a second prestige reaches level 2 with `+10%` | |
 | M6 | Expedition gate | Enter any temple, then try to prestige | The expedition row is unmet, the button is disabled, and a forced request is refused with a toast; no reset occurs | |
 | M7 | Persistence | Rejoin after a successful prestige | Schema is v7; level, rank, lastPrestigeAt, cleared museum, reset upgrades, and surviving gear/training/companions are restored | |
-| M8 | Save rollback | Simulate a forced-save failure (for example, make the profile ephemeral or block the save), then request prestige | The request fails with "Prestige could not be saved"; gold, relics, museum, and upgrades are unchanged and no success effects fire | |
+| M8 | Save rollback | Run `!rh_failsave`, then request prestige | The injected failure rejects the forced save, the flag clears, and the request fails with "Prestige could not be saved"; gold, relics, museum, and upgrades are unchanged and no success effects fire. This exercises the rollback path without a real DataStore outage | |
 | M9 | Exploit checks | Send `Prestige` with nil/empty data, a non-string confirm, and the wrong confirmation string | Server refuses each cleanly with a toast; no reset or success event occurs | |
 | M10 | Ephemeral session | Join in a session without persistent saves and request prestige | The persistence requirement is unmet and the server refuses; no reset occurs | |
 

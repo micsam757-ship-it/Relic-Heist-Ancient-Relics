@@ -18,6 +18,11 @@ major.minor.patch scheme while pre-1.0.
   and refreshing the museum once. The Museum panel shows level, rank, bonus and
   a requirement checklist; the confirmation modal requires typing `PRESTIGE`.
   Existing profiles migrate to v7 with prestige level 0 and no prior prestige.
+- **Studio prestige test helpers:** `!rh_state` now reports museum count,
+  `prestigeLevel`, `lastPrestigeAt`, and the ephemeral flag. `!rh_fillmuseum`
+  places every owned relic in the available pedestals. `!rh_failsave [on|off]`
+  arms a one-shot forced-save failure so Session M can exercise the prestige
+  rollback path without a real DataStore outage. All remain Studio-only.
 - **Relic Companions** (FR-031, schema v6, ADR 0013): three gold-purchased
   companions (`SunScarab`, `TempleHound`, `StoneGuardian`) with server-owned
   ownership and a single equipped slot. `Companions` holds the pure ownership,

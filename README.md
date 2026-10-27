@@ -76,9 +76,11 @@ In Studio only, chat commands are available:
 !rh_state
 !rh_gold <amount>
 !rh_relic <definitionId>
+!rh_fillmuseum
 !rh_unlock <templeId>
 !rh_save
 !rh_reset
+!rh_failsave [on|off]
 ```
 
 These never connect in a published server.

@@ -108,8 +108,9 @@ files in `build/` are the only recovery points.
    (`git push origin main`). Tag milestones as recovery points.
 
 ### Studio-specific safety
-- Use the Studio-only admin commands (`!rh_gold`, `!rh_relic`, `!rh_unlock`,
-  `!rh_reset`) for testing — they are disabled in published servers.
+- Use the Studio-only admin commands (`!rh_gold`, `!rh_relic`,
+  `!rh_fillmuseum`, `!rh_unlock`, `!rh_reset`, `!rh_failsave`) for testing —
+  they are disabled in published servers.
 - To test saving, enable Studio API services; **never destructive-test with a
   real account's data you care about** — use `!rh_reset` or a throwaway account.
 - Without API services the game runs ephemerally and warns in the Settings
